@@ -1,0 +1,20 @@
+{
+  "method_name": "lax_friedrichs",
+  "bounds": {
+    "x_left": 0.0,
+    "x_right": 1.0
+  },
+  "initial_values": {
+    "rho_left": 1.0,
+    "p_left": 1.0,
+    "u_left": 1.0,
+    "rho_right": 1.0,
+    "p_right": 1.0,
+    "u_right": 1.0
+  },
+  "nodes_number": 1000,
+  "courant_number": 0.5,
+  "gamma_is_const": true,
+  "gamma": 1.4,
+  "t_end": 0.2
+}

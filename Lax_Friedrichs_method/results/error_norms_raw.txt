@@ -1,0 +1,29 @@
+grid size = 100
+rho: uniform = 0.0882198 euclid = 0.383779 deviation = 0.0383779
+p: uniform = 0.11801 euclid = 0.428484 deviation = 0.0428484
+u: uniform = 0.612087 euclid = 0.951304 deviation = 0.0951304
+
+grid size = 1000
+rho: uniform = 0.111533 euclid = 0.46697 deviation = 0.0147669
+p: uniform = 0.15761 euclid = 0.388443 deviation = 0.0122837
+u: uniform = 0.782097 euclid = 1.02941 deviation = 0.0325528
+
+grid size = 10000
+rho: uniform = 0.0818546 euclid = 0.648633 deviation = 0.00648633
+p: uniform = 0.100036 euclid = 0.274141 deviation = 0.00274141
+u: uniform = 0.561957 euclid = 0.872653 deviation = 0.00872653
+
+grid size = 25000
+rho: uniform = 0.0830359 euclid = 0.787567 deviation = 0.00498101
+p: uniform = 0.0940086 euclid = 0.234795 deviation = 0.00148497
+u: uniform = 0.535809 euclid = 0.814953 deviation = 0.00515422
+
+grid size = 50000
+rho: uniform = 1.056306e-01 euclid = 9.249478e-01 deviation = 4.136492e-03
+p: uniform = 1.485439e-01 euclid = 9.249478e-01 deviation = 1.048592e-03
+u: uniform = 7.504861e-01 euclid = 8.760363e-01 deviation = 3.917753e-03
+
+grid size = 100000
+rho: uniform = 9.876379e-02 euclid = 1.088866e+00 deviation = 3.443296e-03
+p: uniform = 1.380701e-01 euclid = 2.122085e-01 deviation = 6.710622e-04
+u: uniform = 7.126914e-01 euclid = 8.220523e-01 deviation = 2.599558e-03
