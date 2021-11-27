@@ -11,6 +11,7 @@
 using json = nlohmann::json;
 
 const double eps = 0.000000001;
+const double eps_for_rf_rf = 0.0001;
 
 struct data_node{
   std::vector<double> U; //rho, rho*u, e
@@ -59,25 +60,26 @@ struct data{
     delta_x = (x_right - x_left)/size;
     x0 = size/2;
     mesh.reserve(size);
-    for (size_t i = 0; i < x0 + 1; ++i){
+    for (size_t i = 0; i < x0; ++i){
       mesh.push_back(data_node(rho_left, p_left, u_left, gamma));
     }
-    for (size_t i = x0 + 1; i < size; ++i){
+    for (size_t i = x0; i < size; ++i){
       mesh.push_back(data_node(rho_right, p_right, u_right, gamma));
     }
     /*for (int i = 0; i < size; ++i){
       double x = double(i)/size*10.0 - 5.0;
       double expon = exp(-x*x*0.5);
-      mesh.push_back(data_node(expon, 1.0, 1.0, gamma));
+      mesh.push_back(data_node(expon + 1.0, 1.0, 1.0, gamma));
     }*/
 
-    D.resize(size-1);//D[j] = D(j+1/2)
-    for (size_t i = 0; i < size - 1; ++i) {
-      D[i].resize(3);
+    if (method_name == "mac_cormack+davis"){
+      D.resize(size-1);//D[j] = D(j+1/2)
+      for (size_t i = 0; i < size - 1; ++i) {
+        D[i].resize(3);
+      }
+      D[0] = {0, 0, 0};
+      D[size-2] = {0, 0, 0};
     }
-    D[0] = {0, 0, 0};
-    D[size-2] = {0, 0, 0};
-
   }
 
   void get_data_from_config(std::ifstream& input);
@@ -87,9 +89,102 @@ struct data{
   void mac_cormack_predictor_step (const data& prev_grid);
   void mac_cormack_corrector_step(const data& prev_grid, const data& predictor_grid);
   void calc_new_U_with_mac_cormack(data& prev_grid);
+  void calc_new_U_with_mac_cormack_davis(data& prev_grid);
+  void calc_new_U_and_F_with_godunov(data& prev_grid, double current_t);
   void calc_F();
   data& operator=(const data& other);
   std::vector<std::vector<double> > calc_error_norm(double* R1, double* P1, double* U1, size_t size);
+
+};
+
+class exact_solution {
+public:
+
+  //initial values
+  double x_left, x_right;
+
+  double p1, rho1, u1,
+    p2, rho2, u2;
+
+  double a1, a2, v1, v2;       // v = 1/rho
+
+  double gamma;
+
+  size_t size;
+  double t_end;
+
+  //to calculate:
+  double u3 = 0, p3,
+    rho31, rho32,
+    a31 = 0, a32 = 0,
+    d1 = 0, d2 = 0;
+
+  double delta_x;
+
+  int case_number;
+  /* 0: Sh-Sh
+   * 1: Sh-Rf
+   * 2: Rf-Sh
+   * 3: Rf-Rf
+   * 4: Vacuum */
+
+  double p_max = 1.0;
+
+  double shift = 0.0; //for output: inside solver, interval must be symmetric
+
+  exact_solution(double p1_, double rho1_, double u1_, double p2_, double rho2_, double u2_,
+                 double gamma_, double t_end_, double x_left_, double x_right_, size_t size_)
+    : p1(p1_), rho1(rho1_), u1(u1_), p2(p2_), rho2(rho2_), u2(u2_), gamma(gamma_),
+      t_end(t_end_), x_left(x_left_), x_right(x_right_), size(size_) {
+    //in this constructor we assume that interval is symmetric!
+    v1 = 1.0/rho1;
+    v2 = 1.0/rho2;
+    a1 = std::sqrt(gamma*p1/rho1);
+    a2 = std::sqrt(gamma*p2/rho2);
+    delta_x = (x_right-x_left)/size;
+    p_max = std::max(p1, p2);
+  };
+
+  exact_solution(double p1_, double rho1_, double u1_,
+                 double p2_, double rho2_, double u2_,
+                 double gamma_) :
+    p1(p1_), rho1(rho1_), u1(u1_), p2(p2_), rho2(rho2_), u2(u2_), gamma(gamma_) {
+
+    //in this constructor we assume that interval is symmetric!
+    v1 = 1.0/rho1;
+    v2 = 1.0/rho2;
+    a1 = std::sqrt(gamma*p1/rho1);
+    a2 = std::sqrt(gamma*p2/rho2);
+    p_max = std::max(p1, p2);
+  }
+
+  exact_solution(const data& dt) :
+    rho1(dt.rho_left), p1(dt.p_left), u1(dt.u_left),
+    rho2(dt.rho_right), p2(dt.p_right), u2(dt.u_right),
+    gamma(dt.gamma), t_end(dt.t_end), size(dt.size){
+    x_left = 0.5*(dt.x_left - dt.x_right);
+    x_right = -x_left;
+    shift = -0.5*(dt.x_left + dt.x_right);
+    v1 = 1.0/rho1;
+    v2 = 1.0/rho2;
+    a1 = std::sqrt(gamma*p1/rho1);
+    a2 = std::sqrt(gamma*p2/rho2);
+    delta_x = (x_right-x_left)/size;
+    p_max = std::max(p1, p2);
+  }
+
+  void shock_wave_u(double& f, double& f_der,
+      double p_i, double u_i, double v_i, double p, bool right_dir);
+  void riemann_fan_u(double& f, double& f_der,
+      double p_i, double u_i, double a_i, double p, bool right_dir);
+
+
+  void case_number_choice();
+  void f_and_der_calc(double& f, double& f_der, double p);
+  double newton_solver();
+
+  void calc_and_print_result(std::ofstream& out);
+  double calc_max_velocity(double& u_disc, double& p_disc, double& rho_disc);
 
 };
 

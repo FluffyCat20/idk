@@ -7,7 +7,7 @@ wb = Workbook()
 error_norms_output = {}
 grid_size = 100
 sizes = []
-sizes_number = 4
+sizes_number = 3
 
 for i in range (sizes_number):
 	print (grid_size, "grid is processing")
@@ -23,7 +23,7 @@ for i in range (sizes_number):
 	config_file.close()
 
 	#run
-	subprocess.run(["D:\\gas_dyn\\Lax_Friedrichs_method\\build_release\\lax_friedrichs.exe"])
+	subprocess.run(["D:\\gas_dyn\\idk_build\\build_release\\lax_friedrichs.exe"])
 	'''subprocess.run forces exe to create files in the folder where the py script is
 			not in the folder of exe file
 				surprise mf'''
