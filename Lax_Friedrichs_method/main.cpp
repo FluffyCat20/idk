@@ -1,4 +1,5 @@
 #include "data.h"
+#include "exact_solution.h"
 #include "riemann_v2.c"
 
 int main(){
@@ -38,7 +39,7 @@ int main(){
         new_grid.delta_t = new_grid.t_end - current_t;
       }
       new_grid.calc_new_U_with_lax_friedrichs(grid);
-      new_grid.calc_F();
+      new_grid.calc_F_in_U();
       break;
 
       case 1:
@@ -47,7 +48,7 @@ int main(){
         new_grid.delta_t = new_grid.t_end - current_t;
       }
       new_grid.calc_new_U_with_mac_cormack(grid);
-      new_grid.calc_F();
+      new_grid.calc_F_in_U();
       break;
 
       case 2:
@@ -56,7 +57,7 @@ int main(){
         new_grid.delta_t = new_grid.t_end - current_t;
       }
       new_grid.calc_new_U_with_mac_cormack_davis(grid);
-      new_grid.calc_F();
+      new_grid.calc_F_in_U();
       break;
 
       case 3:
@@ -93,7 +94,6 @@ int main(){
 
   fout.open("out_exact_solution.txt");
   exact_solution exact_result(grid);
-  exact_result.case_number_choice();
   exact_result.calc_and_print_result(fout);
   fout.close();
 
