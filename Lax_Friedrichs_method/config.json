@@ -1,5 +1,5 @@
 {
-  "method_name": "lax_friedrichs",
+  "method_name": "godunov",
   "bounds": {
     "x_left": 0.0,
     "x_right": 1.0
@@ -8,8 +8,8 @@
     "rho_left": 1.0,
     "p_left": 1.0,
     "u_left": 1.0,
-    "rho_right": 1.0,
-    "p_right": 1.0,
+    "rho_right": 0.125,
+    "p_right": 0.1,
     "u_right": 1.0
   },
   "nodes_number": 1000,

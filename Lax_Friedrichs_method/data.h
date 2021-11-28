@@ -121,6 +121,8 @@ public:
 
   double delta_x;
 
+  //left and right from contact discontinuity
+  char left, right; //s - shock wave, r - riemann fan, v - vacuum
   int case_number;
   /* 0: Sh-Sh
    * 1: Sh-Rf
@@ -131,6 +133,8 @@ public:
   double p_max = 1.0;
 
   double shift = 0.0; //for output: inside solver, interval must be symmetric
+
+  std::vector<double> waves_velocities;
 
   exact_solution(double p1_, double rho1_, double u1_, double p2_, double rho2_, double u2_,
                  double gamma_, double t_end_, double x_left_, double x_right_, size_t size_)
@@ -156,6 +160,7 @@ public:
     a1 = std::sqrt(gamma*p1/rho1);
     a2 = std::sqrt(gamma*p2/rho2);
     p_max = std::max(p1, p2);
+    waves_velocities.reserve(5);
   }
 
   exact_solution(const data& dt) :
@@ -183,8 +188,17 @@ public:
   void f_and_der_calc(double& f, double& f_der, double p);
   double newton_solver();
 
+  void calc_p3();
+  void calc_left_sh();
+  void calc_right_sh();
+  void calc_left_rf();
+  void calc_right_rf();
+  void calc_left_vac();
+  void calc_right_vac();
+
   void calc_and_print_result(std::ofstream& out);
-  double calc_max_velocity(double& u_disc, double& p_disc, double& rho_disc);
+  double calc_max_velocity_and_waves_velocities();
+  void find_values_in_zero(double& rho_disc, double& p_disc, double& u_disc);
 
 };
 
