@@ -68,9 +68,9 @@ public:
   }
 
   exact_solution(const data& dt) :
-    rho1(dt.rho_left), p1(dt.p_left), u1(dt.u_left),
-    rho2(dt.rho_right), p2(dt.p_right), u2(dt.u_right),
-    gamma(dt.gamma), t_end(dt.t_end), size(dt.size){
+    rho1(dt.rho_left), p1(dt.p_left), u1(dt.u_left[0]),
+    rho2(dt.rho_right), p2(dt.p_right), u2(dt.u_right[0]),
+    gamma(dt.gamma), t_end(dt.t_end), size(dt.size_x){
     x_left = 0.5*(dt.x_left - dt.x_right);
     x_right = -x_left;
     shift = -0.5*(dt.x_left + dt.x_right);

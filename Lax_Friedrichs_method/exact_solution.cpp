@@ -106,7 +106,7 @@ void exact_solution::case_number_choice() {
 
 double exact_solution::newton_solver() {
   const double max_steps_number = 1000;
-  double p0 = p_max;
+  double p0 = (p1+p2)*0.5;
   double f, f_der;
   size_t steps_number = 0;
   f_and_der_calc(f, f_der, p0);
@@ -212,10 +212,10 @@ void exact_solution::calc_and_print_result(std::ofstream& out) {
 
     calc_left_sh();
 
-    for (x = x_left; x < std::min(x_right, d1*t_end); x+=delta_x){ //steady flow
+    for (x = x_left; x < std::min(x_right, d1*t_end); x+=delta_x) { //steady flow
       out << x - shift << " " << rho1 << " " << p1 << " " << u1 << std::endl;
     }
-    for (; x < std::min(x_right, u3*t_end); x+=delta_x){ //btw shock wave and contact discontinuity
+    for (; x < std::min(x_right, u3*t_end); x+=delta_x) { //btw shock wave and contact discontinuity
       out << x - shift << " " << rho31 << " " << p3 << " " << u3 << std::endl;
     }
 
@@ -223,13 +223,13 @@ void exact_solution::calc_and_print_result(std::ofstream& out) {
   }
 
   case 'r': {
-    for (x = x_left; x < std::min(x_right, (u1 - a1)*t_end); x+=delta_x){ //steady flow
+    for (x = x_left; x < std::min(x_right, (u1 - a1)*t_end); x+=delta_x) { //steady flow
       out << x - shift << " " << rho1 << " " << p1 << " " << u1 << std::endl;
     }
 
     calc_left_rf();
 
-    for (; x < std::min(x_right, (u3 - a31)*t_end); x+=delta_x){ //riemann fan
+    for (; x < std::min(x_right, (u3 - a31)*t_end); x+=delta_x) { //riemann fan
       double u = (2.0*(x/t_end + a1) + u1*(gamma - 1))/(gamma + 1);
       double a = u - x/t_end;
       double rho = rho1*std::pow(a/a1, 2.0/(gamma - 1));
@@ -238,7 +238,7 @@ void exact_solution::calc_and_print_result(std::ofstream& out) {
       out << x - shift << " " << rho << " " << p << " " << u << std::endl;
     }
 
-    for (; x < std::min(x_right, u3*t_end); x+=delta_x){ //btw riemann fan and contact discontinuity
+    for (; x < std::min(x_right, u3*t_end); x+=delta_x) { //btw riemann fan and contact discontinuity
       out << x - shift << " " << rho31 << " " << p3 << " " << u3 << std::endl;
     }
 
@@ -246,7 +246,7 @@ void exact_solution::calc_and_print_result(std::ofstream& out) {
   }
 
   case 'v': {
-    for (x = x_left; x < (u1 - a1)*t_end; x+=delta_x){ //steady flow
+    for (x = x_left; x < (u1 - a1)*t_end; x+=delta_x) { //steady flow
       out << x - shift << " " << rho1 << " " << p1 << " " << u1 << std::endl;
     }
 
@@ -254,7 +254,7 @@ void exact_solution::calc_and_print_result(std::ofstream& out) {
     a31 = 0.0;
     u3 = u1 + 2.0/(gamma - 1)*a1; //a3 = 0
 
-    for (; x < u3*t_end; x+=delta_x){ //riemann fan
+    for (; x < u3*t_end; x+=delta_x) { //riemann fan
       double u = (2.0*(x/t_end + a1) + u1*(gamma - 1))/(gamma + 1);
       double a = u - x/t_end;
       double rho = rho1*std::pow(a/a1, 2.0/(gamma - 1));
@@ -277,7 +277,7 @@ void exact_solution::calc_and_print_result(std::ofstream& out) {
 
     calc_right_sh();
 
-    for (; x < std::min(x_right, d2*t_end); x+=delta_x){ //btw contact discontinuity and shock wave
+    for (; x < std::min(x_right, d2*t_end); x+=delta_x) { //btw contact discontinuity and shock wave
       out << x - shift << " " << rho32 << " " << p3 << " " << u3 << std::endl;
     }
     for (; x < x_right; x+=delta_x){ //steady flow
@@ -291,10 +291,10 @@ void exact_solution::calc_and_print_result(std::ofstream& out) {
 
     calc_right_rf();
 
-    for (; x < std::min((u3 + a32)*t_end, x_right); x+=delta_x){ //btw contact discontinuity and riemann fan
+    for (; x < std::min((u3 + a32)*t_end, x_right); x+=delta_x) { //btw contact discontinuity and riemann fan
       out << x - shift << " " << rho32 << " " << p3 << " " << u3 << std::endl;
     }
-    for (; x < std::min((u2 + a2)*t_end, x_right); x+=delta_x){ //riemann fan
+    for (; x < std::min((u2 + a2)*t_end, x_right); x+=delta_x) { //riemann fan
       double u = (2.0*(x/t_end - a2) + u2*(gamma - 1))/(gamma + 1);
       double a = x/t_end - u;
       double rho = rho2*std::pow(a/a2, 2.0/(gamma - 1));
@@ -302,7 +302,7 @@ void exact_solution::calc_and_print_result(std::ofstream& out) {
 
       out << x - shift << " " << rho << " " << p << " " << u << std::endl;
     }
-    for (; x < x_right; x+=delta_x){ //steady flow
+    for (; x < x_right; x+=delta_x) { //steady flow
       out << x - shift << " " << rho2 << " " << p2 << " " << u2 << std::endl;
     }
 
@@ -315,7 +315,7 @@ void exact_solution::calc_and_print_result(std::ofstream& out) {
     a32 = 0.0;
     u3 = u2 - 2.0/(gamma - 1)*a2; //a3 = 0
 
-    for (; x < std::min(x_right, (u2 + a2)*t_end); x+=delta_x){ //riemann fan
+    for (; x < std::min(x_right, (u2 + a2)*t_end); x+=delta_x) { //riemann fan
       double u = (2.0*(x/t_end - a2) + u2*(gamma - 1))/(gamma + 1);
       double a = x/t_end - u;
       double rho = rho2*std::pow(a/a2, 2.0/(gamma - 1));
@@ -323,7 +323,7 @@ void exact_solution::calc_and_print_result(std::ofstream& out) {
 
       out << x - shift << " " << rho << " " << p << " " << u << std::endl;
     }
-    for (; x < x_right; x+=delta_x){ //steady flow
+    for (; x < x_right; x+=delta_x) { //steady flow
       out << x - shift << " " << rho2 << " " << p2 << " " << u2 << std::endl;
     }
 
@@ -449,8 +449,8 @@ void exact_solution::find_values_in_zero(
     return;
   }
 
-  //now left == 'r' - riemann fan case
-  if (0.0 > *(waves_velocities.end() - 2)) { //inside riemann fan
+  //now right == 'r' - riemann fan case
+  if (0.0 > u2 + a2) { //inside riemann fan
     u_disc = (-2.0*a2 + u2*(gamma - 1))/(gamma + 1);
     rho_disc = rho2*std::pow(-u_disc/a2, 2.0/(gamma - 1)); //u = -a
     p_disc = u_disc*u_disc*rho_disc/gamma;
