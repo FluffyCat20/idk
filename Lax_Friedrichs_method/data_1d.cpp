@@ -1,7 +1,7 @@
-#include "data.h"
+#include "data_1d.h"
 #include "exact_solution.h"
 
-int data_node::calc_F_in_U(){
+int data_node::calc_F_in_node(){
   rho = U[0];
   if (rho < eps) {
     std::cout << "density <= 0 :(" << std::endl;
@@ -9,7 +9,7 @@ int data_node::calc_F_in_U(){
   }
   u = U[1]/rho;
   e = U[2];
-  p = (e-rho*u*u*0.5)*(gamma-1);
+  p = (e - rho*u*u*0.5)*(gamma-1);
 
   F[0] = U[1];
   F[1] = p + rho*u*u;
@@ -124,7 +124,7 @@ void data::mac_cormack_predictor_step(const data& prev_grid){
       mesh[k].U[i] = prev_grid.mesh[k].U[i] - delta_t/delta_x*(prev_grid.mesh[k+1].F[i] - prev_grid.mesh[k].F[i]);
     }
   }
-  calc_F_in_U();
+  calc_F_in_nodes();
 }
 
 void data::mac_cormack_corrector_step(const data& prev_grid, const data& predictor_grid){
@@ -148,7 +148,6 @@ void data::calc_new_U_with_mac_cormack(data& prev_grid){
 void data::calc_new_U_with_mac_cormack_davis(data& prev_grid){
   data predictor_grid(*this);
   predictor_grid.mac_cormack_predictor_step(*this);
-
   mac_cormack_corrector_step(prev_grid, predictor_grid);
 
   //Davis artiificial viscosity terms:
@@ -166,7 +165,7 @@ void data::calc_new_U_and_F_with_godunov(data& prev_grid, double current_t) {
 
   double d_max = 0.0;
 
-  calc_F_btw_U(d_max);
+  calc_F_btw_nodes(d_max);
 
   delta_t = courant_number*prev_grid.delta_x/d_max; //delta t but using riemann task exact solution
 
@@ -199,9 +198,9 @@ void data::calc_new_U_and_F_with_godunov(data& prev_grid, double current_t) {
 }
 
 
-void data::calc_F_in_U() {
+void data::calc_F_in_nodes() {
   for (size_t k = 1; k < size - 1; ++k){
-    if (mesh[k].calc_F_in_U() == -1){
+    if (mesh[k].calc_F_in_node() == -1){
       stop_now = true;
       std::cout << k << std::endl;
       break;
@@ -214,7 +213,7 @@ void data::calc_F_in_U() {
 
 }
 
-void data::calc_F_btw_U(double& max_velocity_abs) {
+void data::calc_F_btw_nodes(double& max_velocity_abs) {
 
   max_velocity_abs = 0.0;
 

@@ -1,4 +1,4 @@
-#include "data.h"
+#include "data_1d.h"
 #include "exact_solution.h"
 
 void exact_solution::shock_wave_u(double& f, double& f_der,

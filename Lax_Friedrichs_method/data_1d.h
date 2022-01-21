@@ -22,7 +22,7 @@ struct data_node{
   data_node(double rho_, double p_, double u_, double gamma_)
     : rho(rho_), p(p_), u(u_), gamma(gamma_) {
     e = p/(gamma - 1) + rho*u*u*0.5;
-    a = sqrt(gamma*p/rho);
+    a = std::sqrt(gamma*p/rho);
     U.reserve(3);
     F.reserve(3);
     U.push_back(rho);
@@ -33,7 +33,7 @@ struct data_node{
     F.push_back((e + p)*u);
   }
 
-  int calc_F_in_U();
+  int calc_F_in_node();
 };
 
 struct data{
@@ -91,8 +91,8 @@ struct data{
   void calc_new_U_with_mac_cormack(data& prev_grid);
   void calc_new_U_with_mac_cormack_davis(data& prev_grid);
   void calc_new_U_and_F_with_godunov(data& prev_grid, double current_t);
-  void calc_F_in_U();
-  void calc_F_btw_U(double& max_velocity);
+  void calc_F_in_nodes();
+  void calc_F_btw_nodes(double& max_velocity);
   data& operator=(const data& other);
 
 };

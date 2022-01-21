@@ -1,20 +1,20 @@
 {
-  "method_name": "godunov",
+  "method_name": "mac_cormack",
   "bounds": {
     "x_left": 0.0,
     "x_right": 1.0
   },
   "initial_values": {
-    "rho_left": 0.4,
-    "p_left": 0.5,
+    "rho_left": 1.0,
+    "p_left": 1.0,
     "u_left": 0.0,
-    "rho_right": 1.0,
-    "p_right": 5.0,
+    "rho_right": 0.125,
+    "p_right": 0.1,
     "u_right": 0.0
   },
-  "nodes_number": 1000,
-  "courant_number": 0.5,
+  "nodes_number": 100,
+  "courant_number": 0.8,
   "gamma_is_const": true,
   "gamma": 1.4,
-  "t_end": 0.1
+  "t_end": 0.2
 }
