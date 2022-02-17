@@ -1,12 +1,14 @@
 {
-	"method_name": "mac_cormack",
+	"method_name": "mac_cormack+davis",
 	"bounds": {
     "x_left": 0.0,
     "x_right": 1.0,
     "y_bottom": 0.0,
     "y_top": 1.0
   },
- 	
+
+ 	"horizontal_flow": {
+ 		"on": false,
  		"rho_left": 1.0,
     "rho_right": 0.125,
     "p_left": 1.0,
@@ -14,15 +16,39 @@
     "u_left": 0.0,
     "u_right": 0.0,
     "v_left": 0.0,
-    "v_right": 0.0,
+    "v_right": 0.0
+ 	},
+
+  "vertical_flow": {
+  	"on": false,
+  	"rho_up": 1.0,
+    "rho_down": 0.125,
+    "p_up": 1.0,
+    "p_down": 0.1,
+    "u_up": 0.0,
+    "u_down": 0.0,
+    "v_up": 0.0,
+    "v_down": 0.0
+  },
+
+  "shock_wave": {
+  	"on": false,
+  	"mach": 3.0
+  },
+
+  
+  "horizontal_left_contact_disc": {
+  	"on": false,
+  	"omega": 0.3
+  },
+  
 
   "gamma": 1.4,
-  "Mach": 2.0,
-  "omega": 0.9,
 
-  "size_x": 250,
-  "size_y": 250,
+  "size_x": 400,
+  "size_y": 400,
 
-  "t_end": 0.15,
+  "t_end": 0.5,
+  "time_step": 0.1,
   "courant_number": 0.6
 }

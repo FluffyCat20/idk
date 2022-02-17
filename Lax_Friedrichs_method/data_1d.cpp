@@ -64,7 +64,8 @@ void data::calc_new_U_with_lax_friedrichs(const data& prev_grid){
   mesh[size - 1].U = mesh[size - 2].U;
 }
 
-double inner_product(const std::vector<double>& v1, const std::vector<double>& v2){
+double inner_product(const std::vector<double>& v1,
+                     const std::vector<double>& v2){
   double res = 0;
   for (size_t i = 0; i < v1.size(); ++i){
     res += v1[i]*v2[i];
