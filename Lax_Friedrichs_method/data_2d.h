@@ -81,8 +81,11 @@ struct data_2d {
     {"horizontal_flow", false},
     {"vertical_flow", false},
     {"shock_wave", false},
-    {"horizontal_left_contact_disc", false}
+    {"horizontal_left_contact_disc", false},
+    {"quadrants", false},
+    {"bubble_near_wall", false}
   };
+
   std::unordered_map<std::string, double> init_data;
 
   double courant_number;
@@ -93,9 +96,9 @@ struct data_2d {
 
   bool stop_now = false;
 
-  data_2d(std::ifstream& config_file_path) {
+  data_2d(std::ifstream& config_file_path, std::string& output_path) {
 
-    get_data_from_config(config_file_path);
+    get_data_from_config(config_file_path, output_path);
 
     delta_x = (x_right - x_left)/size_x;
     delta_y = (y_top - y_bottom)/size_y;
@@ -169,13 +172,119 @@ struct data_2d {
         }
       }
     }
+
+    if (init_config["quadrants"]) {
+
+      for (size_t i = 0; i < y0; ++i) {
+        for (size_t j = 0; j < x0; ++j) {
+          mesh[i].emplace_back(init_data["rho_down_left"],
+              init_data["p_down_left"], init_data["u_down_left"],
+              init_data["v_down_left"], gamma);
+        }
+      }
+
+      for (size_t i = 0; i < y0; ++i) {
+        for (size_t j = x0; j < size_x; ++j) {
+          mesh[i].emplace_back(init_data["rho_down_right"],
+              init_data["p_down_right"], init_data["u_down_right"],
+              init_data["v_down_right"], gamma);
+        }
+      }
+
+      for (size_t i = y0; i < size_y; ++i) {
+        for (size_t j = 0; j < x0; ++j) {
+          mesh[i].emplace_back(init_data["rho_up_left"],
+              init_data["p_up_left"], init_data["u_up_left"],
+              init_data["v_up_left"], gamma);
+        }
+      }
+
+      for (size_t i = y0; i < size_y; ++i) {
+        for (size_t j = x0; j < size_x; ++j) {
+          mesh[i].emplace_back(init_data["rho_up_right"],
+              init_data["p_up_right"], init_data["u_up_right"],
+              init_data["v_up_right"], gamma);
+        }
+      }
+    }
+
+    if (init_config["bubble_near_wall"]) {
+      double nodes_in_1_x_double = static_cast<double> (size_x) / (x_right - x_left);
+      double nodes_in_1_y_double = static_cast<double> (size_y) / (y_top - y_bottom);
+      double eps = 1e-06;
+      if (std::abs(nodes_in_1_x_double - nodes_in_1_y_double) > eps) {
+        std::cout << std::abs(nodes_in_1_x_double - nodes_in_1_y_double) <<
+          " < " << eps << std::endl;
+        std::cout << "you fucked up: different scales for x, y" << std::endl;
+        return;
+      }
+      size_t nodes_in_1_x = std::round(nodes_in_1_x_double);
+      size_t nodes_in_1_y = std::round(nodes_in_1_y_double);
+      y0 = (init_data["y0"] - y_bottom) * nodes_in_1_y;
+      x0 = (init_data["x0"] - x_left) * nodes_in_1_x;
+      double rho_after_sw, p_after_sw, u_after_sw;
+      double u_bfr_sw_if_sw_stays;
+      shock_wave_initialization(rho_after_sw, p_after_sw, u_after_sw,
+        init_data["rho_around_bubble"], init_data["p_around_bubble"],
+        u_bfr_sw_if_sw_stays);
+      u_after_sw = - u_after_sw + u_bfr_sw_if_sw_stays;  //we assume there that u before sw = 0 in config!!!
+      double v_after_sw = 0.0;
+      size_t sw_x = init_data["gap_btw_sw_and_bound"] * nodes_in_1_x;
+      double rho_in_bubble = init_data["rho_around_bubble"] * init_data["omega"];
+      size_t a = init_data["a"] * nodes_in_1_x; 
+      double b_div_by_a = init_data["b_div_by_a"];
+      size_t b = static_cast<size_t>(a * b_div_by_a);
+      for (size_t y = 0; y < size_y; ++y) {
+        int y_diff = y - y0;
+        size_t left_bubble_edge = x0;
+        size_t right_bubble_edge = x0;
+        if (std::abs(y_diff) <= b) {
+          size_t bubble_x = static_cast<size_t>(
+            std::sqrt(a*a - y_diff*y_diff/b_div_by_a/b_div_by_a));
+          left_bubble_edge -= bubble_x;
+          right_bubble_edge += bubble_x;
+        }
+        for (size_t x = 0; x < sw_x; ++x) {
+          mesh[y].emplace_back(rho_after_sw, p_after_sw, u_after_sw,
+            v_after_sw, gamma);
+        }
+        for (size_t x = sw_x; x < left_bubble_edge; ++x) {
+          mesh[y].emplace_back(
+            init_data["rho_around_bubble"], init_data["p_around_bubble"],
+            init_data["u_around_bubble"], init_data["v_around_bubble"],
+            gamma);
+        }
+
+        if (left_bubble_edge == x0 && right_bubble_edge == x0) {
+          mesh[y].emplace_back(
+            init_data["rho_around_bubble"], init_data["p_around_bubble"],
+            init_data["u_around_bubble"], init_data["v_around_bubble"],
+            gamma);
+        } else {
+          for (size_t x = left_bubble_edge; x < right_bubble_edge + 1; ++x) {
+            mesh[y].emplace_back(
+              rho_in_bubble, init_data["p_around_bubble"],
+              init_data["u_around_bubble"], init_data["v_around_bubble"],
+              gamma);
+          }
+        }
+
+        for (size_t x = right_bubble_edge + 1; x < size_x; ++x) {
+          mesh[y].emplace_back(
+            init_data["rho_around_bubble"], init_data["p_around_bubble"],
+            init_data["u_around_bubble"], init_data["v_around_bubble"],
+            gamma);
+        }
+      }
+    }
+
   }
 
   void get_init_data_map(json& config_data, std::string key);
-  void get_data_from_config(std::ifstream& input);
+  void get_data_from_config(std::ifstream& input, std::string& output_path);
   void shock_wave_initialization(
-      double& p, double& rho, double& u,
-      double p1, double rho1, double& u1); //1 - before sw, no ind - after sw
+      double& rho, double& p, double& u,
+      double rho1, double p1, double& u1); //1 - before sw, no ind - after sw
   double calc_delta_t();
   void lax_friedrichs(const data_2d& prev_grid);
   void mac_cormack(const data_2d& prev_grid);
@@ -187,9 +296,16 @@ struct data_2d {
 
   void calc_values_and_fluxes();
   void boundary_conditions();
+  void boundary_conditions_for_bubble_near_wall();
+  void boundary_conditions_for_bubble_near_wall_simmetry_on_bottom();
+  void boundary_conditions_default();
 
   void output_first(std::ofstream& outfile);
   void output_for_current_time(std::ofstream& outfile, double time);
+  void output_in_wall_point_first(std::ofstream& outfile);
+  void output_in_wall_point_for_current_time(std::ofstream& outfile, double time);
+  void output_on_symmetry_axis_first(std::ofstream& outfile);
+  void output_on_symmetry_axis_for_current_time(std::ofstream& outfile, double time);
 
   data_2d& operator=(const data_2d& other);
 };

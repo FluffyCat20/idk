@@ -11,9 +11,11 @@ void data_2d::get_init_data_map(json &config_data, std::string key) {
   }
 }
 
-void data_2d::get_data_from_config(std::ifstream &input) {
+void data_2d::get_data_from_config(std::ifstream &input, std::string& output_folder) {
   json config_data;
   input >> config_data;
+
+  output_folder = config_data["output_folder"];
 
   method_name = config_data["method_name"];
 
@@ -22,10 +24,9 @@ void data_2d::get_data_from_config(std::ifstream &input) {
   y_bottom = config_data["bounds"]["y_bottom"];
   y_top = config_data["bounds"]["y_top"];
 
-  get_init_data_map(config_data, "horizontal_flow");
-  get_init_data_map(config_data, "vertical_flow");
-  get_init_data_map(config_data, "shock_wave");
-  get_init_data_map(config_data, "horizontal_left_contact_disc");
+  for (const auto& pair : init_config) {
+    get_init_data_map(config_data, pair.first);
+  }
 
   size_x = config_data["size_x"];
   size_y = config_data["size_y"];
@@ -61,6 +62,16 @@ void data_2d::calc_values_and_fluxes() {
 }
 
 void data_2d::boundary_conditions() {
+
+  //if (init_config["bubble_near_wall"]) {
+    //boundary_conditions_for_bubble_near_wall();
+    boundary_conditions_for_bubble_near_wall_simmetry_on_bottom();
+  //} else {
+  //  boundary_conditions_default();
+  //}
+}
+
+void data_2d::boundary_conditions_default() {
   for (size_t y = 1; y < size_y - 1; ++y) {
     mesh[y][0] = mesh[y][1];
     mesh[y][size_x - 1] = mesh[y][size_x - 2];
@@ -70,6 +81,62 @@ void data_2d::boundary_conditions() {
     mesh[size_y - 1][x] = mesh[size_y - 2][x];
   }
 }
+
+void data_2d::boundary_conditions_for_bubble_near_wall() {
+  // solid wall on the right:
+  for (size_t y = 1; y < size_y - 1; ++y) {
+    data_node_2d& node_to_change = mesh[y][size_x - 1];
+    node_to_change = mesh[y][size_x - 2];
+    node_to_change.u *= -1;
+    node_to_change.U[1] *= -1;
+    node_to_change.F[0] *= -1;
+    node_to_change.F[2] *= -1;
+    node_to_change.F[3] *= -1;
+    node_to_change.G[1] *= -1;
+  }
+
+  // d/dn = 0 on other bounds:
+  for (size_t y = 1; y < size_y - 1; ++y) {
+    mesh[y][0] = mesh[y][1];
+  }
+  for (size_t x = 1; x < size_x - 1; ++x) {
+    mesh[0][x] = mesh[1][x];
+    mesh[size_y - 1][x] = mesh[size_y - 2][x];
+  }
+}
+
+void data_2d::boundary_conditions_for_bubble_near_wall_simmetry_on_bottom() {
+  // solid wall on the right:
+  for (size_t y = 1; y < size_y - 1; ++y) {
+    data_node_2d& node_to_change = mesh[y][size_x - 1];
+    node_to_change = mesh[y][size_x - 2];
+    node_to_change.u *= -1;
+    node_to_change.U[1] *= -1;
+    node_to_change.F[0] *= -1;
+    node_to_change.F[2] *= -1;
+    node_to_change.F[3] *= -1;
+    node_to_change.G[1] *= -1;
+  }
+
+  // d/dn = 0 on left&right bounds and symmetry on bottom:
+  for (size_t y = 1; y < size_y - 1; ++y) {
+    mesh[y][0] = mesh[y][1];
+  }
+  for (size_t x = 1; x < size_x - 1; ++x) {
+    data_node_2d& node_to_change = mesh[0][x];
+    node_to_change = mesh[1][x];
+    node_to_change.v *= -1;
+    node_to_change.U[2] *= -1;
+    node_to_change.F[2] *= -1;
+    node_to_change.G[0] *= -1;
+    node_to_change.G[1] *= -1;
+    node_to_change.G[3] *= -1;
+
+    mesh[size_y - 1][x] = mesh[size_y - 2][x];
+
+  }
+}
+
 
 void data_2d::lax_friedrichs(const data_2d &prev_grid) {
   for (size_t i = 1; i < size_y - 1; ++i) {
@@ -273,9 +340,39 @@ void data_2d::output_for_current_time(std::ofstream &outfile, double time) {
   for (size_t i = 0; i < size_x; ++i) {
     for (size_t j = 0; j < size_y; ++j) {
       const data_node_2d& pt = mesh[j][i];
-      outfile << i*delta_x << " " << j*delta_y << " " <<
+      outfile << i*delta_x + x_left << " " << j*delta_y + y_bottom << " " <<
         pt.rho << " " << pt.p << " " << pt.u << " " << pt.v << std::endl;
-     }
+    }
+  }
+
+  std::cout << "Calculations done: time = " << time << std::endl;
+
+}
+
+void data_2d::output_in_wall_point_first(std::ofstream &outfile) {
+  outfile << "TITLE = \" in central point \"" << std::endl;
+  outfile << "VARIABLES = \"t\", \"rho\", \"p\"" << std::endl;
+  outfile << std::setprecision(4);
+  output_in_wall_point_for_current_time(outfile, 0.0);
+}
+
+void data_2d::output_in_wall_point_for_current_time(std::ofstream &outfile, double time) {
+  outfile << time << " " << mesh[1][size_x - 2].rho << " " << mesh[1][size_x - 2].p << std::endl;
+}
+
+void data_2d::output_on_symmetry_axis_first(std::ofstream &outfile) {
+  outfile << "TITLE = \" on symmetry axis \"" << std::endl;
+  outfile << "VARIABLES = \"x\", \"rho\", \"p\"" << std::endl;
+  outfile << std::setprecision(4);
+  output_on_symmetry_axis_for_current_time(outfile, 0.0);
+}
+
+void data_2d::output_on_symmetry_axis_for_current_time(std::ofstream &outfile, double time) {
+  outfile << "ZONE I = " << size_x << ", F=POINT, SOLUTIONTIME = "
+    << time << " t = " << "\"" << time << "\"" << std::endl;
+  for (size_t x = 0; x < size_x; ++x) {
+    const data_node_2d& pt = mesh[0][x];
+    outfile << x*delta_x + x_left << " " << pt.rho << " " << pt.p << std::endl;
   }
 }
 

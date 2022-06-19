@@ -1,10 +1,53 @@
 {
 	"method_name": "mac_cormack+davis",
 	"bounds": {
-    "x_left": 0.0,
-    "x_right": 1.0,
+    "x_left": -0.8,
+    "x_right": 0.5,
     "y_bottom": 0.0,
     "y_top": 1.0
+  },
+
+  "output_folder": "D:/gas_dyn/trash_can/",
+
+  "bubble_near_wall": {
+  	"on": true,
+  	
+  	"x0": 0.0,
+  	"y0": 0.0,
+  	"a": 0.3536,
+  	"b_div_by_a": 2.0,
+  	"omega": 4.5,
+  	"mach": 3.0,
+  	"gap_btw_sw_and_bound": 0.1,
+  	"rho_around_bubble": 1.0,
+  	"p_around_bubble": 1.0,
+  	"u_around_bubble": 0.0,
+  	"v_around_bubble": 0.0
+
+  },
+
+  "quadrants": {
+  	"on": false,
+  	
+  	"rho_up_left": 2.0,
+  	"p_up_left": 1.0,
+  	"u_up_left": 0.0,
+  	"v_up_left": -0.3,
+
+  	"rho_up_right": 1.0,
+  	"p_up_right": 1.0,
+  	"u_up_right": 0.0,
+  	"v_up_right": -0.4,
+
+  	"rho_down_left": 1.0625,
+  	"p_down_left": 0.4,
+  	"u_down_left": 0.0,
+  	"v_down_left": 0.2145,
+
+		"rho_down_right": 0.5197,
+  	"p_down_right": 0.4,
+  	"u_down_right": 0.0,
+  	"v_down_right": -1.12  	
   },
 
  	"horizontal_flow": {
@@ -36,7 +79,6 @@
   	"mach": 3.0
   },
 
-  
   "horizontal_left_contact_disc": {
   	"on": false,
   	"omega": 0.3
@@ -45,10 +87,10 @@
 
   "gamma": 1.4,
 
-  "size_x": 400,
-  "size_y": 400,
+  "size_x": 130,
+  "size_y": 100,
 
-  "t_end": 0.5,
-  "time_step": 0.1,
+  "t_end": 0.6,
+  "time_step": 0.01,
   "courant_number": 0.6
 }
