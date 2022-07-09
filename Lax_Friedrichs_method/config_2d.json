@@ -7,15 +7,15 @@
     "y_top": 1.0
   },
 
-  "output_folder": "D:/gas_dyn/trash_can/",
+  "output_folder": "D:/gas_dyn/results_tecplot/elliptical_bubble_near_wall/M=3_L=0.5_omega=4.5_grid_convergence_check/a_over_b_1.00(round bubble)/grid1560x1200/",
 
   "bubble_near_wall": {
   	"on": true,
   	
   	"x0": 0.0,
   	"y0": 0.0,
-  	"a": 0.3536,
-  	"b_div_by_a": 2.0,
+  	"a": 0.5,
+  	"b_div_by_a": 1.0,
   	"omega": 4.5,
   	"mach": 3.0,
   	"gap_btw_sw_and_bound": 0.1,
@@ -87,10 +87,10 @@
 
   "gamma": 1.4,
 
-  "size_x": 130,
-  "size_y": 100,
+  "size_x": 1560,
+  "size_y": 1200,
 
-  "t_end": 0.6,
+  "t_end": 1.5,
   "time_step": 0.01,
   "courant_number": 0.6
 }

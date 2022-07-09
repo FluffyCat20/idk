@@ -1,4 +1,4 @@
-#include "data_2d.h"
+#include "utils.hpp"
 
 void data_2d::get_init_data_map(json &config_data, std::string key) {
   if (config_data[key]["on"]) {
@@ -36,6 +36,7 @@ void data_2d::get_data_from_config(std::ifstream &input, std::string& output_fol
   courant_number = config_data["courant_number"];
 
   gamma = config_data["gamma"];
+  data_node_2d::gamma = gamma;
 }
 
 double data_2d::calc_delta_t() {
@@ -395,3 +396,172 @@ data_2d& data_2d::operator=(const data_2d& other) {
 
   return *this;
 }
+
+void data_2d::update_pressure_sensors_on_wall(double t) {
+  size_t y = 0;
+  for (auto& sensor : pressure_sensors_on_wall) {
+    sensor.emplace_back(t, mesh[y][size_x - 2].p);
+    y++;
+  }
+}
+
+void data_2d::output_pressure_sensors_on_wall(
+    const std::string &output_folder) {
+
+  for (size_t i = 0; i < pressure_sensors_on_wall.size(); ++i) {
+    std::ofstream fout(output_folder +
+      "pressure_on_wall_sensors_norm/pressure_sensor" + std::to_string(i) + ".dat");
+    for (const auto& it : pressure_sensors_on_wall[i]) {
+      fout << it.first << " " << it.second << std::endl;
+    }
+    fout.close();
+  }
+}
+
+void data_2d::get_pressure_sensors_from_files(
+    const std::string &sensors_folder) {
+
+  pressure_sensors_on_wall.resize(size_y);
+  for (int i = 0; i < size_y; ++i) {
+    std::ifstream fin(sensors_folder + "pressure_sensor" +
+      std::to_string(i) + ".dat");
+    double t, p;
+    while (fin >> t >> p) {
+      pressure_sensors_on_wall[i].emplace_back(t, p);
+    }
+    fin.close();
+  }
+
+}
+
+inline double F(double p, double rho2, double p2, double u2) {
+  //for 1D shock reflection from a wall (for newton solver)
+  double gamma = data_node_2d::gamma;
+
+  double res = u2 * u2 - 2.0 * (p - p2) * (p - p2)
+    / rho2 / (p2 * (gamma - 1) + p * (gamma + 1));
+
+  return res;
+}
+
+inline double F_der(double p, double rho2, double p2) {
+  //for 1D shock reflection from a wall (for newton solver)
+  double gamma = data_node_2d::gamma;
+
+  double denom = p2 * (gamma - 1) + p * (gamma + 1);
+
+  return 2.0 * (p2 - p) * (p * (gamma + 2) + p2 * (3 * gamma + 2))
+      / rho2 / denom / denom;
+}
+
+void data_2d::calc_pressure_after_reflected_shock_no_bubble(
+    const double rho2, const double p2, const double u2,
+    double& p3) {
+
+  p3 = newton_solver(
+    std::bind(F, std::placeholders::_1, rho2, p2, u2),
+    std::bind(F_der, std::placeholders::_1, rho2, p2));
+
+  //mb add: while p3 == p1, repeat with another newton solver initial state
+
+}
+
+std::vector<double> data_2d::calc_pressure_impulses_basic(
+    double t0, double p0) const {
+
+  double eps = 1e-6;
+
+  //t0 - time of coming of initial shock on the wall without bubble
+  //t1 - time of coming of initial shock on the wall with bubble
+  std::vector<double> impulses(size_y);
+  for (size_t i = 0; i < pressure_sensors_on_wall.size(); ++i) {
+    const auto& sensor = pressure_sensors_on_wall[i];
+    double initial_p = sensor.front().second;
+    std::list<std::pair<double, double>>::const_iterator it0 =
+      sensor.cbegin();
+    std::list<std::pair<double, double>>::const_iterator it1 =
+      sensor.cbegin();
+    for (; it0 != sensor.cend() && it0->first < t0; ++it0) {}
+    for (; it1 != sensor.cend() && std::abs(it1->second - initial_p) < eps; ++it1) {}
+    double t1 = t0;
+    if (it1 != sensor.cend()) {
+      t1 = it1->first;
+    }
+    for (auto it = t0 < t1 ? it0 : it1; it != sensor.cend(); ++it) {
+      //it must not be == sensor.cbegin()
+      impulses[i] += (it->second - p0) * (it->first - std::prev(it)->first);
+    }
+  }
+
+  return impulses;
+}
+
+inline std::list<std::pair<double, double>>::const_iterator find_sensor_max(
+    const std::list<std::pair<double, double>>& sensor) {
+
+  auto it = sensor.cbegin();
+  auto res = it;
+  double max = it->second;
+  for (; it != sensor.cend(); ++it) {
+    if (it->second > max) {
+      res = it;
+      max = it->second;
+    }
+  }
+  return res;
+}
+
+std::vector<double> data_2d::calc_pressure_impulses_max_peak_bfr_p0(
+    double p0) const {
+
+  std::vector<double> impulses(size_y);
+  for (size_t i = 0; i < pressure_sensors_on_wall.size(); ++i) {
+    const auto& sensor = pressure_sensors_on_wall[i];
+    auto max_it = find_sensor_max(sensor);
+    auto left_peak_bound = max_it;
+    left_peak_bound --;
+    auto right_peak_bound = max_it;
+    while (left_peak_bound != sensor.cbegin() && left_peak_bound->second > p0) {
+      double t_next = std::next(left_peak_bound)->first;
+      impulses[i] += (left_peak_bound->second - p0) * (
+        t_next - left_peak_bound->first);
+      left_peak_bound--;
+    }
+    while (right_peak_bound != sensor.cend() && right_peak_bound->second > p0) {
+      double t_prev = std::prev(right_peak_bound)->first;
+      impulses[i] += (right_peak_bound->second - p0) * (
+        right_peak_bound->first - t_prev);
+      right_peak_bound++;
+    }
+  }
+  return impulses;
+}
+
+std::vector<double>
+data_2d::calc_pressure_impulses_max_peak_bounded_by_local_min() const {
+
+  double diff = 0.5;
+
+  std::vector<double> impulses(size_y);
+  for (size_t i = 0; i < pressure_sensors_on_wall.size(); ++i) {
+    const auto& sensor = pressure_sensors_on_wall[i];
+    auto max_it = find_sensor_max(sensor);
+    auto left_peak_bound = max_it;
+    left_peak_bound --;
+    auto right_peak_bound = max_it;
+    while (left_peak_bound != sensor.cbegin() &&
+           left_peak_bound->second > std::prev(left_peak_bound)->second - diff) {
+      double t_next = std::next(left_peak_bound)->first;
+      impulses[i] += left_peak_bound->second * (t_next - left_peak_bound->first);
+      left_peak_bound--;
+    }
+    while (std::next(right_peak_bound) != sensor.cend() &&
+           right_peak_bound->second > std::next(right_peak_bound)->second - diff) {
+      double t_prev = std::prev(right_peak_bound)->first;
+      impulses[i] += right_peak_bound->second * (right_peak_bound->first - t_prev);
+      right_peak_bound++;
+    }
+  }
+  return impulses;
+}
+
