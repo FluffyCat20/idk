@@ -309,17 +309,7 @@ struct data_2d {
   void boundary_conditions_for_bubble_near_wall_simmetry_on_bottom();
   void boundary_conditions_default();
 
-  void output_first(std::ofstream& outfile);
-  void output_for_current_time(std::ofstream& outfile, double time);
-  void output_in_wall_point_first(std::ofstream& outfile);
-  void output_in_wall_point_for_current_time(
-    std::ofstream& outfile, double time);
-  void output_on_symmetry_axis_first(std::ofstream& outfile);
-  void output_on_symmetry_axis_for_current_time(
-    std::ofstream& outfile, double time);
-
   void update_pressure_sensors_on_wall(double t);
-  void output_pressure_sensors_on_wall(const std::string& output_folder);
   void get_pressure_sensors_from_files(const std::string& sensors_folder);
 
 

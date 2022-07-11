@@ -5,8 +5,9 @@ add_executable(2dimensions main_2d.cpp data_2d.h data_2d.cpp utils.hpp data_2d_w
 
 set (nlohmann_json_DIR json_parser/)
 find_package(nlohmann_json 3.2.0 REQUIRED)
-set (TecIO_DIR D:/Tecplot/Tecplot 360 EX 2021 R1/lib/tecio.lib)
 
 add_library(bin_by_OG IO_Functions.h IO_Functions.cpp)
+
 target_link_libraries(1dimension PRIVATE nlohmann_json::nlohmann_json #[[bin_by_OG]])
-target_link_libraries(2dimensions PRIVATE nlohmann_json::nlohmann_json TecIO_DIR #[[bin_by_OG]])
+target_link_libraries(2dimensions PRIVATE nlohmann_json::nlohmann_json #[[bin_by_OG]])
+

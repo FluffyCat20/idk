@@ -1,6 +1,7 @@
 #include "utils.hpp"
 
-void data_2d::get_init_data_map(json &config_data, std::string key) {
+void data_2d::get_init_data_map(
+    json &config_data, std::string key) {
   if (config_data[key]["on"]) {
     init_config[key] = true;
     for (auto& val : config_data[key].get<json::object_t>()) {
@@ -11,7 +12,8 @@ void data_2d::get_init_data_map(json &config_data, std::string key) {
   }
 }
 
-void data_2d::get_data_from_config(std::ifstream &input, std::string& output_folder) {
+void data_2d::get_data_from_config(
+    std::ifstream &input, std::string& output_folder) {
   json config_data;
   input >> config_data;
 
@@ -326,56 +328,7 @@ void data_2d::calc_davis_artificial_viscosity() {
 
 }
 
-void data_2d::output_first(std::ofstream &outfile) {
-  outfile << "TITLE = \"" << method_name <<
-             "; size: " << size_x << "x" << size_y << "\""<< std::endl;
-  outfile << "VARIABLES = \"x\", \"y\", \"rho\", \"p\", \"u\", \"v\"" << std::endl;
-  outfile << std::setprecision(4);
-  output_for_current_time(outfile, 0.0);
-}
 
-void data_2d::output_for_current_time(std::ofstream &outfile, double time) {
-  outfile << "ZONE T=\"0.0000\", SOLUTIONTIME=" << time << std::endl;
-  outfile << "I=" << size_y << ", J=" << size_x << ", F=POINT" << std::endl;
-
-  for (size_t i = 0; i < size_x; ++i) {
-    for (size_t j = 0; j < size_y; ++j) {
-      const data_node_2d& pt = mesh[j][i];
-      outfile << i*delta_x + x_left << " " << j*delta_y + y_bottom << " " <<
-        pt.rho << " " << pt.p << " " << pt.u << " " << pt.v << std::endl;
-    }
-  }
-
-  std::cout << "Calculations done: time = " << time << std::endl;
-
-}
-
-void data_2d::output_in_wall_point_first(std::ofstream &outfile) {
-  outfile << "TITLE = \" in central point \"" << std::endl;
-  outfile << "VARIABLES = \"t\", \"rho\", \"p\"" << std::endl;
-  outfile << std::setprecision(4);
-  output_in_wall_point_for_current_time(outfile, 0.0);
-}
-
-void data_2d::output_in_wall_point_for_current_time(std::ofstream &outfile, double time) {
-  outfile << time << " " << mesh[1][size_x - 2].rho << " " << mesh[1][size_x - 2].p << std::endl;
-}
-
-void data_2d::output_on_symmetry_axis_first(std::ofstream &outfile) {
-  outfile << "TITLE = \" on symmetry axis \"" << std::endl;
-  outfile << "VARIABLES = \"x\", \"rho\", \"p\"" << std::endl;
-  outfile << std::setprecision(4);
-  output_on_symmetry_axis_for_current_time(outfile, 0.0);
-}
-
-void data_2d::output_on_symmetry_axis_for_current_time(std::ofstream &outfile, double time) {
-  outfile << "ZONE I = " << size_x << ", F=POINT, SOLUTIONTIME = "
-    << time << " t = " << "\"" << time << "\"" << std::endl;
-  for (size_t x = 0; x < size_x; ++x) {
-    const data_node_2d& pt = mesh[0][x];
-    outfile << x*delta_x + x_left << " " << pt.rho << " " << pt.p << std::endl;
-  }
-}
 
 void data_2d::shock_wave_initialization (
     double& rho, double& p, double& u,
@@ -402,19 +355,6 @@ void data_2d::update_pressure_sensors_on_wall(double t) {
   for (auto& sensor : pressure_sensors_on_wall) {
     sensor.emplace_back(t, mesh[y][size_x - 2].p);
     y++;
-  }
-}
-
-void data_2d::output_pressure_sensors_on_wall(
-    const std::string &output_folder) {
-
-  for (size_t i = 0; i < pressure_sensors_on_wall.size(); ++i) {
-    std::ofstream fout(output_folder +
-      "pressure_on_wall_sensors_norm/pressure_sensor" + std::to_string(i) + ".dat");
-    for (const auto& it : pressure_sensors_on_wall[i]) {
-      fout << it.first << " " << it.second << std::endl;
-    }
-    fout.close();
   }
 }
 

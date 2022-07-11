@@ -1,4 +1,4 @@
-#include "data_2d.h"
+#include "data_2d_writer.h"
 
 double data_node_2d::gamma;
 
@@ -48,6 +48,8 @@ int main(int argc, char* argv[]) {
   data_2d grid(input, output_folder);
   input.close();
 
+  data_2d_writer grid_writer(grid, output_folder);
+
   /*grid.get_pressure_sensors_from_files(
     output_folder + "pressure_on_wall_sensors/");
 
@@ -64,23 +66,14 @@ int main(int argc, char* argv[]) {
 
   return 0;*/
 
-
-
-
-
-  std::ofstream outfile(output_folder + grid.method_name +
-    std::to_string(grid.size_x)
-    + "x" + std::to_string(grid.size_y) + ".dat");
-  grid.output_first(outfile);
+  grid_writer.output_first();
 
   std::ofstream pressure_diag(output_folder + "pressure_diag" +
     std::to_string(grid.size_x)
     + "x" + std::to_string(grid.size_y) + ".dat");
-  grid.output_in_wall_point_first(pressure_diag);
+  grid_writer.output_in_wall_point_first(pressure_diag);
 
-  std::ofstream rho_p_on_symmetry_axis(output_folder + "rho_p_on_symmetry_axis" +
-    std::to_string(grid.size_x) + "x" + std::to_string(grid.size_y) + ".dat");
-  grid.output_on_symmetry_axis_first(rho_p_on_symmetry_axis);
+  grid_writer.output_on_symmetry_axis_first();
 
   std::ofstream peaks(output_folder + "peaks.dat");
 
@@ -150,7 +143,7 @@ int main(int argc, char* argv[]) {
 
     grid.update_pressure_sensors_on_wall(current_t);
 
-    grid.output_in_wall_point_for_current_time(pressure_diag, current_t);
+    grid_writer.output_in_wall_point_for_current_time(pressure_diag, current_t);
 
     if (corner_pt.rho > rho_peak) {
       rho_peak = corner_pt.rho;
@@ -162,12 +155,11 @@ int main(int argc, char* argv[]) {
       p_peak_time = current_t;
     }
 
-    grid.output_on_symmetry_axis_for_current_time(
-      rho_p_on_symmetry_axis, current_t);
+    grid_writer.output_on_symmetry_axis_for_current_time(current_t);
 
     if (current_time_idx + 1 < times.size() &&
         times[current_time_idx + 1] <= current_t) {
-      grid.output_for_current_time(outfile, current_t);
+      grid_writer.output_for_current_time(current_t);
       ++current_time_idx;
     }
 
@@ -181,7 +173,7 @@ int main(int argc, char* argv[]) {
 
   std::cout << current_t << " steps: " << counter << std::endl;
 
-  grid.output_for_current_time(outfile, current_t);
+  grid_writer.output_for_current_time(current_t);
 
 
   //reflected shock with no bubble
@@ -192,7 +184,7 @@ int main(int argc, char* argv[]) {
     grid.init_data["gap_btw_sw_and_bound"]) / grid.D_of_initial_shock;
 
   //sensors & impulses
-  grid.output_pressure_sensors_on_wall(output_folder);
+  grid_writer.output_pressure_sensors_on_wall(output_folder);
   impulses_output(grid, t0, p3, output_folder);
 
   //peaks:
@@ -203,9 +195,7 @@ int main(int argc, char* argv[]) {
   peaks << "max p in corner point:" << std::endl <<
     "time = " << p_peak_time << " p = " << p_peak << std::endl;
 
-  outfile.close();
   pressure_diag.close();
-  rho_p_on_symmetry_axis.close();
   peaks.close();
 
   return 0;

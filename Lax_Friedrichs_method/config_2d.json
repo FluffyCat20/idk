@@ -7,7 +7,7 @@
     "y_top": 1.0
   },
 
-  "output_folder": "D:/gas_dyn/results_tecplot/elliptical_bubble_near_wall/M=3_L=0.5_omega=4.5_grid_convergence_check/a_over_b_1.00(round bubble)/grid1560x1200/",
+  "output_folder": "D:/gas_dyn/results_tecplot/elliptical_bubble_near_wall/M=3_L=0.5_omega=4.5_grid_convergence_check/a_over_b_1.00(round bubble)/grid195x150/",
 
   "bubble_near_wall": {
   	"on": true,
@@ -87,8 +87,8 @@
 
   "gamma": 1.4,
 
-  "size_x": 1560,
-  "size_y": 1200,
+  "size_x": 195,
+  "size_y": 150,
 
   "t_end": 1.5,
   "time_step": 0.01,
