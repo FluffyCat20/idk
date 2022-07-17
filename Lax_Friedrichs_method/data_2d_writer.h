@@ -2,24 +2,25 @@
 #define DATA2D_WRITER_H
 #pragma once
 
-#include "data_2d.h"
+#include "calculation_info.hpp"
 
+template <class node_t>
 class data_2d_writer {
 
 public:
 
-  data_2d_writer(const data_2d& data_,
+  data_2d_writer(const data_2d<node_t>& grid_,
       const std::string& output_folder)
-    : data(data_) {
+    : grid(grid_){
     std::string grid_ascii_outfile_name =
-      output_folder + data.method_name + std::to_string(data.size_x)
-      + "x" + std::to_string(data.size_y) + ".dat";
+      output_folder + std::to_string(grid.par.size_x)
+      + "x" + std::to_string(grid.par.size_y) + ".dat";
     grid_ascii_outfile.open(grid_ascii_outfile_name);
 
     std::string symmetry_axis_outfile_name =
       output_folder + "rho_p_on_symmetry_axis" +
-      std::to_string(data.size_x) + "x" +
-      std::to_string(data.size_y) + ".dat";
+      std::to_string(grid.par.size_x) + "x" +
+      std::to_string(grid.par.size_y) + ".dat";
     symmetry_axis_outfile.open(symmetry_axis_outfile_name);
   }
 
@@ -39,13 +40,12 @@ public:
   void output_pressure_sensors_on_wall(const std::string& output_folder);
 
 private:
-  const data_2d& data;
-
+  const data_2d<node_t>& grid;
   std::string output_folder;
 
   std::ofstream grid_ascii_outfile;
   std::ofstream symmetry_axis_outfile;
 };
 
-
+#include "data_2d_writer.inl"
 #endif // DATA2D_WRITER_H

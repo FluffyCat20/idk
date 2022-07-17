@@ -7,7 +7,9 @@
     "y_top": 1.0
   },
 
-  "output_folder": "D:/gas_dyn/results_tecplot/elliptical_bubble_near_wall/M=3_L=0.5_omega=4.5_grid_convergence_check/a_over_b_1.00(round bubble)/grid195x150/",
+  "output_folder": "D:/gas_dyn/trash_can/",
+
+  "coord_type": "axis_symm",
 
   "bubble_near_wall": {
   	"on": true,

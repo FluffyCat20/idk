@@ -1,62 +1,50 @@
 #include "utils.hpp"
 
-void data_2d::get_init_data_map(
-    json &config_data, std::string key) {
-  if (config_data[key]["on"]) {
-    init_config[key] = true;
-    for (auto& val : config_data[key].get<json::object_t>()) {
-      if (val.second.is_number()) {
-        init_data.insert(val);
-      }
-    }
-  }
-}
+template <typename node_t>
+void data_2d<node_t>::do_one_step(const data_2d<node_t>& prev_grid) {
+//он шо, такой умный, шо поймёт без темплейтов, какие темплейтные функции вызываются??
+  switch (par.method_number) {
 
-void data_2d::get_data_from_config(
-    std::ifstream &input, std::string& output_folder) {
-  json config_data;
-  input >> config_data;
-
-  output_folder = config_data["output_folder"];
-
-  method_name = config_data["method_name"];
-
-  x_left = config_data["bounds"]["x_left"];
-  x_right = config_data["bounds"]["x_right"];
-  y_bottom = config_data["bounds"]["y_bottom"];
-  y_top = config_data["bounds"]["y_top"];
-
-  for (const auto& pair : init_config) {
-    get_init_data_map(config_data, pair.first);
+  case 0: {
+    lax_friedrichs(prev_grid);
+    break;
   }
 
-  size_x = config_data["size_x"];
-  size_y = config_data["size_y"];
-  t_end = config_data["t_end"];
-  time_step = config_data["time_step"];
+  case 1: {
+    mac_cormack(prev_grid);
+    break;
+  }
+  case 2: {
+    mac_cormack_with_davis(prev_grid);
+    break;
+  }
+  default: {
+    std::cout << "????" << std::endl;
+    break;
+  }
+  }
 
-  courant_number = config_data["courant_number"];
-
-  gamma = config_data["gamma"];
-  data_node_2d::gamma = gamma;
+  return;
 }
 
-double data_2d::calc_delta_t() {
+template <typename node_t>
+double data_2d<node_t>::calc_delta_t() {
   double max_u_abs_plus_a = std::numeric_limits<double>::min();
   for (const auto& row : mesh) {
-    for (const data_node_2d& node : row) {
-      double candidat = node.u_abs + node.a;
-      if (candidat > max_u_abs_plus_a) {
-        max_u_abs_plus_a = candidat;
+    for (const data_node_2d& nd : row) {
+      double candidate = nd.u_abs + nd.a;
+      if (candidate > max_u_abs_plus_a) {
+        max_u_abs_plus_a = candidate;
       }
     }
   }
-  return delta_x/max_u_abs_plus_a*courant_number;
+  return par.delta_x / max_u_abs_plus_a * par.courant_number;
 }
 
-void data_2d::calc_values_and_fluxes() {
-  for (size_t i = 1; i < size_y - 1; ++i) {
-    for (size_t j = 1; j < size_x - 1; ++j) {
+template <typename node_t>
+void data_2d<node_t>::calc_values_and_fluxes() {
+  for (size_t i = 1; i < par.size_y - 1; ++i) {
+    for (size_t j = 1; j < par.size_x - 1; ++j) {
       mesh[i][j].calc_values_from_U();
       mesh[i][j].calc_F_when_values_known();
       mesh[i][j].calc_G_when_values_known();
@@ -64,55 +52,12 @@ void data_2d::calc_values_and_fluxes() {
   }
 }
 
-void data_2d::boundary_conditions() {
-
-  //if (init_config["bubble_near_wall"]) {
-    //boundary_conditions_for_bubble_near_wall();
-    boundary_conditions_for_bubble_near_wall_simmetry_on_bottom();
-  //} else {
-  //  boundary_conditions_default();
-  //}
-}
-
-void data_2d::boundary_conditions_default() {
-  for (size_t y = 1; y < size_y - 1; ++y) {
-    mesh[y][0] = mesh[y][1];
-    mesh[y][size_x - 1] = mesh[y][size_x - 2];
-  }
-  for (size_t x = 1; x < size_x - 1; ++x) {
-    mesh[0][x] = mesh[1][x];
-    mesh[size_y - 1][x] = mesh[size_y - 2][x];
-  }
-}
-
-void data_2d::boundary_conditions_for_bubble_near_wall() {
+template <>
+void data_2d<data_node_cartesian>::boundary_conditions_for_bubble_near_wall_simmetry_on_bottom() {
   // solid wall on the right:
-  for (size_t y = 1; y < size_y - 1; ++y) {
-    data_node_2d& node_to_change = mesh[y][size_x - 1];
-    node_to_change = mesh[y][size_x - 2];
-    node_to_change.u *= -1;
-    node_to_change.U[1] *= -1;
-    node_to_change.F[0] *= -1;
-    node_to_change.F[2] *= -1;
-    node_to_change.F[3] *= -1;
-    node_to_change.G[1] *= -1;
-  }
-
-  // d/dn = 0 on other bounds:
-  for (size_t y = 1; y < size_y - 1; ++y) {
-    mesh[y][0] = mesh[y][1];
-  }
-  for (size_t x = 1; x < size_x - 1; ++x) {
-    mesh[0][x] = mesh[1][x];
-    mesh[size_y - 1][x] = mesh[size_y - 2][x];
-  }
-}
-
-void data_2d::boundary_conditions_for_bubble_near_wall_simmetry_on_bottom() {
-  // solid wall on the right:
-  for (size_t y = 1; y < size_y - 1; ++y) {
-    data_node_2d& node_to_change = mesh[y][size_x - 1];
-    node_to_change = mesh[y][size_x - 2];
+  for (size_t y = 1; y < par.size_y - 1; ++y) {
+    data_node_2d& node_to_change = mesh[y][par.size_x - 1];
+    node_to_change = mesh[y][par.size_x - 2];
     node_to_change.u *= -1;
     node_to_change.U[1] *= -1;
     node_to_change.F[0] *= -1;
@@ -122,10 +67,10 @@ void data_2d::boundary_conditions_for_bubble_near_wall_simmetry_on_bottom() {
   }
 
   // d/dn = 0 on left&right bounds and symmetry on bottom:
-  for (size_t y = 1; y < size_y - 1; ++y) {
+  for (size_t y = 1; y < par.size_y - 1; ++y) {
     mesh[y][0] = mesh[y][1];
   }
-  for (size_t x = 1; x < size_x - 1; ++x) {
+  for (size_t x = 1; x < par.size_x - 1; ++x) {
     data_node_2d& node_to_change = mesh[0][x];
     node_to_change = mesh[1][x];
     node_to_change.v *= -1;
@@ -135,23 +80,72 @@ void data_2d::boundary_conditions_for_bubble_near_wall_simmetry_on_bottom() {
     node_to_change.G[1] *= -1;
     node_to_change.G[3] *= -1;
 
-    mesh[size_y - 1][x] = mesh[size_y - 2][x];
+    mesh[par.size_y - 1][x] = mesh[par.size_y - 2][x];
 
   }
 }
 
 
-void data_2d::lax_friedrichs(const data_2d &prev_grid) {
-  for (size_t i = 1; i < size_y - 1; ++i) {
-    for (size_t j = 1; j < size_x - 1; ++j) {
+template <>
+void data_2d<data_node_cartesian>::boundary_conditions() {
+
+  //if (init_config["bubble_near_wall"]) {
+    //boundary_conditions_for_bubble_near_wall();
+    boundary_conditions_for_bubble_near_wall_simmetry_on_bottom();
+  //} else {
+  //  boundary_conditions_default();
+  //}
+}
+
+template <>
+void data_2d<data_node_cartesian>::boundary_conditions_default() {
+  for (size_t y = 1; y < par.size_y - 1; ++y) {
+    mesh[y][0] = mesh[y][1];
+    mesh[y][par.size_x - 1] = mesh[y][par.size_x - 2];
+  }
+  for (size_t x = 1; x < par.size_x - 1; ++x) {
+    mesh[0][x] = mesh[1][x];
+    mesh[par.size_y - 1][x] = mesh[par.size_y - 2][x];
+  }
+}
+
+template <>
+void data_2d<data_node_cartesian>::boundary_conditions_for_bubble_near_wall() {
+  // solid wall on the right:
+  for (size_t y = 1; y < par.size_y - 1; ++y) {
+    data_node_2d& node_to_change = mesh[y][par.size_x - 1];
+    node_to_change = mesh[y][par.size_x - 2];
+    node_to_change.u *= -1;
+    node_to_change.U[1] *= -1;
+    node_to_change.F[0] *= -1;
+    node_to_change.F[2] *= -1;
+    node_to_change.F[3] *= -1;
+    node_to_change.G[1] *= -1;
+  }
+
+  // d/dn = 0 on other bounds:
+  for (size_t y = 1; y < par.size_y - 1; ++y) {
+    mesh[y][0] = mesh[y][1];
+  }
+  for (size_t x = 1; x < par.size_x - 1; ++x) {
+    mesh[0][x] = mesh[1][x];
+    mesh[par.size_y - 1][x] = mesh[par.size_y - 2][x];
+  }
+}
+
+
+template <typename node>
+void data_2d<node>::lax_friedrichs(const data_2d<node> &prev_grid) {
+  for (size_t i = 1; i < par.size_y - 1; ++i) {
+    for (size_t j = 1; j < par.size_x - 1; ++j) {
       auto& up = prev_grid.mesh[i-1][j];
       auto& down = prev_grid.mesh[i+1][j];
       auto& left = prev_grid.mesh[i][j-1];
       auto& right = prev_grid.mesh[i][j+1];
       for (size_t k = 0; k < 4; ++k) {
         mesh[i][j].U[k] = 0.25*(up.U[k] + down.U[k] + left.U[k] + right.U[k]) -
-          0.5*delta_t/delta_x * (right.F[k] - left.F[k]) -
-          0.5*delta_t/delta_y * (up.G[k] - down.G[k]);
+          0.5*par.delta_t/par.delta_x * (right.F[k] - left.F[k]) -
+          0.5*par.delta_t/par.delta_y * (up.G[k] - down.G[k]);
       }
     }
   }
@@ -159,14 +153,15 @@ void data_2d::lax_friedrichs(const data_2d &prev_grid) {
   boundary_conditions();
 }
 
-
-void data_2d::mac_cormack_predictor_step(data_2d& predictor_grid)const{
-  for (size_t i = 0; i < size_y - 1; ++i) { //0?? not 1??
-    for (size_t j = 0; j < size_x - 1; ++j) {
+template <>
+void data_2d<data_node_cartesian>::mac_cormack_predictor_step(
+    data_2d<data_node_cartesian>& predictor_grid) const{
+  for (size_t i = 0; i < par.size_y - 1; ++i) { //0?? not 1??
+    for (size_t j = 0; j < par.size_x - 1; ++j) {
       for (size_t k = 0; k < 4; ++k) {
         predictor_grid.mesh[i][j].U[k] = mesh[i][j].U[k]
-          - delta_t*((mesh[i][j+1].F[k] - mesh[i][j].F[k])/delta_x
-                      + (mesh[i+1][j].G[k] - mesh[i][j].G[k])/delta_y);
+          - par.delta_t*((mesh[i][j+1].F[k] - mesh[i][j].F[k])/par.delta_x
+                      + (mesh[i+1][j].G[k] - mesh[i][j].G[k])/par.delta_y);
       }
     }
   }
@@ -183,21 +178,25 @@ void data_2d::mac_cormack_predictor_step(data_2d& predictor_grid)const{
   predictor_grid.boundary_conditions();
 }
 
-void data_2d::mac_cormack_corrector_step(
-    const data_2d &prev_grid, const data_2d &predictor_grid) {
-  for (size_t i = 1; i < size_y - 1; ++i) { //size?? not size - 1??
-    for (size_t j = 1; j < size_x - 1; ++j) {
+template <>
+void data_2d<data_node_cartesian>::mac_cormack_corrector_step(
+    const data_2d<data_node_cartesian> &prev_grid,
+    const data_2d<data_node_cartesian> &predictor_grid) {
+  for (size_t i = 1; i < par.size_y - 1; ++i) { //size?? not size - 1??
+    for (size_t j = 1; j < par.size_x - 1; ++j) {
       for (size_t k = 0; k < 4; ++k) {
         mesh[i][j].U[k] = 0.5*(prev_grid.mesh[i][j].U[k] + predictor_grid.mesh[i][j].U[k])
-          - 0.5*delta_t*((predictor_grid.mesh[i][j].F[k] - predictor_grid.mesh[i][j - 1].F[k])/delta_x
-                          + (predictor_grid.mesh[i][j].G[k] - predictor_grid.mesh[i - 1][j].G[k])/delta_y);
+          - 0.5*par.delta_t*((predictor_grid.mesh[i][j].F[k] - predictor_grid.mesh[i][j - 1].F[k])/par.delta_x
+                          + (predictor_grid.mesh[i][j].G[k] - predictor_grid.mesh[i - 1][j].G[k])/par.delta_y);
       }
     }
   }
 }
 
-void data_2d::mac_cormack(const data_2d& prev_grid) {
-  data_2d predictor_grid(prev_grid); //TODO: copy common data only
+template <>
+void data_2d<data_node_cartesian>::mac_cormack(
+    const data_2d<data_node_cartesian>& prev_grid) {
+  data_2d<data_node_cartesian> predictor_grid(prev_grid); //TODO: copy common data only
   prev_grid.mac_cormack_predictor_step(predictor_grid);
   mac_cormack_corrector_step(prev_grid, predictor_grid);
   calc_values_and_fluxes();
@@ -220,8 +219,10 @@ inline double phi(double rp, double rm) { //rp = r+, rm = r-
          std::min({2*rm, rp, 1.0}) });
 }
 
-void data_2d::mac_cormack_with_davis(const data_2d &prev_grid) {
-  data_2d predictor_grid(prev_grid); //TODO: copy common data only
+template <>
+void data_2d<data_node_cartesian>::mac_cormack_with_davis(
+    const data_2d<data_node_cartesian> &prev_grid) {
+  data_2d<data_node_cartesian> predictor_grid(prev_grid); //TODO: copy common data only
   prev_grid.mac_cormack_predictor_step(predictor_grid);
   mac_cormack_corrector_step(prev_grid, predictor_grid);
   boundary_conditions();
@@ -230,21 +231,22 @@ void data_2d::mac_cormack_with_davis(const data_2d &prev_grid) {
   boundary_conditions();
 }
 
-void data_2d::calc_davis_artificial_viscosity() {
+template <typename node>
+void data_2d<node>::calc_davis_artificial_viscosity() {
   std::vector<std::vector<double>>
-    r_x_plus(size_y, std::vector<double>(size_x)),
-    r_x_minus(size_y, std::vector<double>(size_x)),
-    r_y_plus(size_y, std::vector<double>(size_x)),
-    r_y_minus(size_y, std::vector<double>(size_x));
+    r_x_plus(par.size_y, std::vector<double>(par.size_x)),
+    r_x_minus(par.size_y, std::vector<double>(par.size_x)),
+    r_y_plus(par.size_y, std::vector<double>(par.size_x)),
+    r_y_minus(par.size_y, std::vector<double>(par.size_x));
   std::vector<std::vector<std::vector<double>>>
-    delta_u_x(size_y, std::vector<std::vector<double>>(size_x, std::vector<double>(4))),
-    delta_u_y(size_y, std::vector<std::vector<double>>(size_x, std::vector<double>(4))),
-    D_x(size_y, std::vector<std::vector<double>>(size_x, std::vector<double>(4))),
-    D_y(size_y, std::vector<std::vector<double>>(size_x, std::vector<double>(4)));
+    delta_u_x(par.size_y, std::vector<std::vector<double>>(par.size_x, std::vector<double>(4))),
+    delta_u_y(par.size_y, std::vector<std::vector<double>>(par.size_x, std::vector<double>(4))),
+    D_x(par.size_y, std::vector<std::vector<double>>(par.size_x, std::vector<double>(4))),
+    D_y(par.size_y, std::vector<std::vector<double>>(par.size_x, std::vector<double>(4)));
 
   //delta_u calculation:
-  for (size_t i = 0; i < size_y - 1; ++i) {
-    for (size_t j = 0; j < size_x - 1; ++j) {
+  for (size_t i = 0; i < par.size_y - 1; ++i) {
+    for (size_t j = 0; j < par.size_x - 1; ++j) {
       for (size_t k = 0; k < 4; ++k) {
         delta_u_x[i][j][k] = mesh[i][j+1].U[k] - mesh[i][j].U[k];
         delta_u_y[i][j][k] = mesh[i+1][j].U[k] - mesh[i][j].U[k];
@@ -253,8 +255,8 @@ void data_2d::calc_davis_artificial_viscosity() {
   }
 
   //r calculation: //TODO: fix: inner products are calculated twice (save squares?)
-  for (size_t i = 1; i < size_y - 1; ++i) {
-    for (size_t j = 1; j < size_x - 1; ++j) {
+  for (size_t i = 1; i < par.size_y - 1; ++i) {
+    for (size_t j = 1; j < par.size_x - 1; ++j) {
       //x-direction
       double product_mid_x = inner_product(delta_u_x[i][j-1], delta_u_x[i][j]);
       double product_left_x = inner_product(delta_u_x[i][j-1], delta_u_x[i][j-1]);
@@ -274,12 +276,12 @@ void data_2d::calc_davis_artificial_viscosity() {
   }
 
   //nu, K, D calculation:
-  for (size_t i = 1; i < size_y - 1; ++i) {
-    for (size_t j = 1; j < size_x - 1; ++j) {
+  for (size_t i = 1; i < par.size_y - 1; ++i) {
+    for (size_t j = 1; j < par.size_x - 1; ++j) {
       double lambda = std::max(std::abs(mesh[i][j].u_abs + mesh[i][j].a),
                                std::abs(mesh[i][j].u_abs - mesh[i][j].a));
       //nu_x, k_x
-      double nu_x = delta_t/delta_x*lambda;
+      double nu_x = par.delta_t / par.delta_x * lambda;
       double c_nu_x = nu_x*(1-nu_x);
       if (nu_x > 0.5) {
         c_nu_x = 0.25;
@@ -287,7 +289,7 @@ void data_2d::calc_davis_artificial_viscosity() {
       double k_x = 0.5*c_nu_x*(1 - phi(r_x_plus[i][j], r_x_minus[i][j+1]));
 
       //nu_y, k_y
-      double nu_y = delta_t/delta_y*lambda;
+      double nu_y = par.delta_t / par.delta_y * lambda;
       double c_nu_y = nu_y*(1-nu_y);
       if (nu_y > 0.5) {
         c_nu_y = 0.25;
@@ -304,22 +306,22 @@ void data_2d::calc_davis_artificial_viscosity() {
   }
 
   for (size_t k = 0; k < 4; ++k) {
-    for (size_t i = 1; i < size_y - 1; ++i){
+    for (size_t i = 1; i < par.size_y - 1; ++i){
       D_x[i][0][k] = 0.0;
-      D_x[i][size_x - 1][k] = 0.0;
+      D_x[i][par.size_x - 1][k] = 0.0;
       D_y[i][0][k] = 0.0;
-      D_y[i][size_x - 1][k] = 0.0;
+      D_y[i][par.size_x - 1][k] = 0.0;
     }
-    for (size_t j = 1; j < size_x - 1; ++j){
+    for (size_t j = 1; j < par.size_x - 1; ++j){
       D_x[0][j][k] = 0.0;
-      D_x[size_y - 1][j][k] = 0.0;
+      D_x[par.size_y - 1][j][k] = 0.0;
       D_y[0][j][k] = 0.0;
-      D_y[size_y - 1][j][k] = 0.0;
+      D_y[par.size_y - 1][j][k] = 0.0;
     }
   }
 
-  for (size_t i = 1; i < size_y - 1; ++i) {
-    for (size_t j = 1; j < size_x - 1; ++j) {
+  for (size_t i = 1; i < par.size_y - 1; ++i) {
+    for (size_t j = 1; j < par.size_x - 1; ++j) {
       for (size_t k = 0; k < 4; ++k) {
         mesh[i][j].U[k] += D_x[i][j][k] - D_x[i][j-1][k] + D_y[i][j][k] - D_y[i-1][j][k];
       }
@@ -328,41 +330,43 @@ void data_2d::calc_davis_artificial_viscosity() {
 
 }
 
-
-
-void data_2d::shock_wave_initialization (
+template <typename node_t>
+void data_2d<node_t>::shock_wave_initialization (
     double& rho, double& p, double& u,
-    double rho1, double p1, double& u1) { //1 - before sw, no ind - after sw
+    double rho1, double p1, double& u1,
+    double mach) { //1 - before sw, no ind - after sw
 
-  double& mach = init_data["mach"];
-  double a1 = std::sqrt(gamma*p1/rho1);
+  double a1 = std::sqrt(par.gamma*p1/rho1);
   u1 = mach*a1;
-  p = p1*(2*gamma/(gamma+1)*mach*mach - (gamma-1)/(gamma+1));
-  rho = 1/(rho1*((gamma-1)/(gamma+1)) + 2/(gamma+1)/mach/mach);
+  p = p1*(2*par.gamma/(par.gamma+1)*mach*mach - (par.gamma-1)/(par.gamma+1));
+  rho = 1/(rho1*((par.gamma-1)/(par.gamma+1)) + 2/(par.gamma+1)/mach/mach);
   u = u1*rho1/rho;
 
 }
 
-data_2d& data_2d::operator=(const data_2d& other) {
+template <typename node_t>
+data_2d<node_t>& data_2d<node_t>::operator=(const data_2d<node_t>& other) {
   mesh = other.mesh;
-  delta_t = other.delta_t;
+  par.delta_t = other.par.delta_t;
 
   return *this;
 }
 
-void data_2d::update_pressure_sensors_on_wall(double t) {
+template <typename node_t>
+void data_2d<node_t>::update_pressure_sensors_on_wall(double t) {
   size_t y = 0;
   for (auto& sensor : pressure_sensors_on_wall) {
-    sensor.emplace_back(t, mesh[y][size_x - 2].p);
+    sensor.emplace_back(t, mesh[y][par.size_x - 2].p);
     y++;
   }
 }
 
-void data_2d::get_pressure_sensors_from_files(
+template <typename node_t>
+void data_2d<node_t>::get_pressure_sensors_from_files(
     const std::string &sensors_folder) {
 
-  pressure_sensors_on_wall.resize(size_y);
-  for (int i = 0; i < size_y; ++i) {
+  pressure_sensors_on_wall.resize(par.size_y);
+  for (int i = 0; i < par.size_y; ++i) {
     std::ifstream fin(sensors_folder + "pressure_sensor" +
       std::to_string(i) + ".dat");
     double t, p;
@@ -394,7 +398,8 @@ inline double F_der(double p, double rho2, double p2) {
       / rho2 / denom / denom;
 }
 
-void data_2d::calc_pressure_after_reflected_shock_no_bubble(
+template <typename node_t>
+void data_2d<node_t>::calc_pressure_after_reflected_shock_no_bubble(
     const double rho2, const double p2, const double u2,
     double& p3) {
 
@@ -406,14 +411,15 @@ void data_2d::calc_pressure_after_reflected_shock_no_bubble(
 
 }
 
-std::vector<double> data_2d::calc_pressure_impulses_basic(
+template <typename node_t>
+std::vector<double> data_2d<node_t>::calc_pressure_impulses_basic(
     double t0, double p0) const {
 
   double eps = 1e-6;
 
   //t0 - time of coming of initial shock on the wall without bubble
   //t1 - time of coming of initial shock on the wall with bubble
-  std::vector<double> impulses(size_y);
+  std::vector<double> impulses(par.size_y);
   for (size_t i = 0; i < pressure_sensors_on_wall.size(); ++i) {
     const auto& sensor = pressure_sensors_on_wall[i];
     double initial_p = sensor.front().second;
@@ -451,10 +457,11 @@ inline std::list<std::pair<double, double>>::const_iterator find_sensor_max(
   return res;
 }
 
-std::vector<double> data_2d::calc_pressure_impulses_max_peak_bfr_p0(
-    double p0) const {
+template <typename node_t>
+std::vector<double> data_2d<node_t>::
+calc_pressure_impulses_max_peak_bfr_p0(double p0) const {
 
-  std::vector<double> impulses(size_y);
+  std::vector<double> impulses(par.size_y);
   for (size_t i = 0; i < pressure_sensors_on_wall.size(); ++i) {
     const auto& sensor = pressure_sensors_on_wall[i];
     auto max_it = find_sensor_max(sensor);
@@ -477,12 +484,13 @@ std::vector<double> data_2d::calc_pressure_impulses_max_peak_bfr_p0(
   return impulses;
 }
 
-std::vector<double>
-data_2d::calc_pressure_impulses_max_peak_bounded_by_local_min() const {
+template <typename node_t>
+std::vector<double> data_2d<node_t>::
+calc_pressure_impulses_max_peak_bounded_by_local_min() const {
 
   double diff = 0.5;
 
-  std::vector<double> impulses(size_y);
+  std::vector<double> impulses(par.size_y);
   for (size_t i = 0; i < pressure_sensors_on_wall.size(); ++i) {
     const auto& sensor = pressure_sensors_on_wall[i];
     auto max_it = find_sensor_max(sensor);
