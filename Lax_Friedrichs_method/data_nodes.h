@@ -15,11 +15,11 @@ public:
   double rho, p, u, v, u_abs, e, a; //u_abs = velocity vector length
   static double gamma;
 
-  virtual void calc_U_when_values_known() = 0;
-  virtual void calc_F_when_values_known() = 0;
-  virtual void calc_G_when_values_known() = 0;
+  virtual void calc_U_when_values_known(); //подумай про виртуальность абстрактность чо там ещё, =0 короче
+  virtual void calc_F_when_values_known();
+  virtual void calc_G_when_values_known();
 
-  virtual void calc_values_from_U() = 0;
+  virtual void calc_values_from_U();
 
 protected:
   data_node_2d(double rho_, double p_, double u_, double v_)

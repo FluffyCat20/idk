@@ -1,7 +1,7 @@
 #include "utils.hpp"
 
 template <typename node_t>
-void data_2d<node_t>::do_one_step(const data_2d<node_t>& prev_grid) {
+void data_2d<node_t>::do_one_step(const base_data_2d& prev_grid) {
 //он шо, такой умный, шо поймёт без темплейтов, какие темплейтные функции вызываются??
   switch (par.method_number) {
 
@@ -134,14 +134,15 @@ void data_2d<data_node_cartesian>::boundary_conditions_for_bubble_near_wall() {
 }
 
 
-template <typename node>
-void data_2d<node>::lax_friedrichs(const data_2d<node> &prev_grid) {
+template <typename node_t>
+void data_2d<node_t>::lax_friedrichs(const base_data_2d& prev_grid) {
+  auto prev_mesh = prev_grid.get_const_mesh();
   for (size_t i = 1; i < par.size_y - 1; ++i) {
     for (size_t j = 1; j < par.size_x - 1; ++j) {
-      auto& up = prev_grid.mesh[i-1][j];
-      auto& down = prev_grid.mesh[i+1][j];
-      auto& left = prev_grid.mesh[i][j-1];
-      auto& right = prev_grid.mesh[i][j+1];
+      auto& up = prev_mesh[i-1][j];
+      auto& down = prev_mesh[i+1][j];
+      auto& left = prev_mesh[i][j-1];
+      auto& right = prev_mesh[i][j+1];
       for (size_t k = 0; k < 4; ++k) {
         mesh[i][j].U[k] = 0.25*(up.U[k] + down.U[k] + left.U[k] + right.U[k]) -
           0.5*par.delta_t/par.delta_x * (right.F[k] - left.F[k]) -
@@ -155,11 +156,12 @@ void data_2d<node>::lax_friedrichs(const data_2d<node> &prev_grid) {
 
 template <>
 void data_2d<data_node_cartesian>::mac_cormack_predictor_step(
-    data_2d<data_node_cartesian>& predictor_grid) const{
+    base_data_2d& predictor_grid) const {
+  auto predictor_mesh = predictor_grid.get_changeable_mesh();
   for (size_t i = 0; i < par.size_y - 1; ++i) { //0?? not 1??
     for (size_t j = 0; j < par.size_x - 1; ++j) {
       for (size_t k = 0; k < 4; ++k) {
-        predictor_grid.mesh[i][j].U[k] = mesh[i][j].U[k]
+        predictor_mesh[i][j].U[k] = mesh[i][j].U[k]
           - par.delta_t*((mesh[i][j+1].F[k] - mesh[i][j].F[k])/par.delta_x
                       + (mesh[i+1][j].G[k] - mesh[i][j].G[k])/par.delta_y);
       }
@@ -180,14 +182,16 @@ void data_2d<data_node_cartesian>::mac_cormack_predictor_step(
 
 template <>
 void data_2d<data_node_cartesian>::mac_cormack_corrector_step(
-    const data_2d<data_node_cartesian> &prev_grid,
-    const data_2d<data_node_cartesian> &predictor_grid) {
+    const base_data_2d &prev_grid,
+    const base_data_2d &predictor_grid) {
+  auto prev_mesh = prev_grid.get_const_mesh();
+  auto predictor_mesh = predictor_grid.get_const_mesh();
   for (size_t i = 1; i < par.size_y - 1; ++i) { //size?? not size - 1??
     for (size_t j = 1; j < par.size_x - 1; ++j) {
       for (size_t k = 0; k < 4; ++k) {
-        mesh[i][j].U[k] = 0.5*(prev_grid.mesh[i][j].U[k] + predictor_grid.mesh[i][j].U[k])
-          - 0.5*par.delta_t*((predictor_grid.mesh[i][j].F[k] - predictor_grid.mesh[i][j - 1].F[k])/par.delta_x
-                          + (predictor_grid.mesh[i][j].G[k] - predictor_grid.mesh[i - 1][j].G[k])/par.delta_y);
+        mesh[i][j].U[k] = 0.5*(prev_mesh[i][j].U[k] + predictor_mesh[i][j].U[k])
+          - 0.5*par.delta_t*((predictor_mesh[i][j].F[k] - predictor_mesh[i][j - 1].F[k])/par.delta_x
+                          + (predictor_mesh[i][j].G[k] - predictor_mesh[i - 1][j].G[k])/par.delta_y);
       }
     }
   }
@@ -195,7 +199,7 @@ void data_2d<data_node_cartesian>::mac_cormack_corrector_step(
 
 template <>
 void data_2d<data_node_cartesian>::mac_cormack(
-    const data_2d<data_node_cartesian>& prev_grid) {
+    const base_data_2d& prev_grid) {
   data_2d<data_node_cartesian> predictor_grid(prev_grid); //TODO: copy common data only
   prev_grid.mac_cormack_predictor_step(predictor_grid);
   mac_cormack_corrector_step(prev_grid, predictor_grid);
@@ -221,7 +225,7 @@ inline double phi(double rp, double rm) { //rp = r+, rm = r-
 
 template <>
 void data_2d<data_node_cartesian>::mac_cormack_with_davis(
-    const data_2d<data_node_cartesian> &prev_grid) {
+    const base_data_2d &prev_grid) {
   data_2d<data_node_cartesian> predictor_grid(prev_grid); //TODO: copy common data only
   prev_grid.mac_cormack_predictor_step(predictor_grid);
   mac_cormack_corrector_step(prev_grid, predictor_grid);
@@ -231,8 +235,8 @@ void data_2d<data_node_cartesian>::mac_cormack_with_davis(
   boundary_conditions();
 }
 
-template <typename node>
-void data_2d<node>::calc_davis_artificial_viscosity() {
+template <typename node_t>
+void data_2d<node_t>::calc_davis_artificial_viscosity() {
   std::vector<std::vector<double>>
     r_x_plus(par.size_y, std::vector<double>(par.size_x)),
     r_x_minus(par.size_y, std::vector<double>(par.size_x)),
@@ -345,9 +349,11 @@ void data_2d<node_t>::shock_wave_initialization (
 }
 
 template <typename node_t>
-data_2d<node_t>& data_2d<node_t>::operator=(const data_2d<node_t>& other) {
-  mesh = other.mesh;
-  par.delta_t = other.par.delta_t;
+base_data_2d& data_2d<node_t>::operator=(const base_data_2d& other) {
+  auto other_ref = dynamic_cast<const data_2d<node_t>&>(other);
+
+  mesh = other_ref.mesh;
+  par.delta_t = other_ref.par.delta_t;
 
   return *this;
 }

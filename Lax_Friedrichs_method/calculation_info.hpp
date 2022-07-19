@@ -22,8 +22,8 @@ public:
     {"quadrants", false},
     {"bubble_near_wall", false}
   };
-  /*using func_t = std::function<std::unique_ptr<base_data_2d>()>;
-  std::map<std::string, func_t> coord_types;*/
+  using func_t = std::function<std::unique_ptr<base_data_2d>()>;
+  std::map<std::string, func_t> data_creator;
   std::string method_name = "";
   int coord_type_number = -1;
 
@@ -42,11 +42,10 @@ private:
     {"axis_symm", 1}
   };
 
-
-  /*void prepare_possible_nodes_map() { //must be called after all data getting from config!!!!
-    coord_types.emplace("cartesian", [this]{return new data_2d<data_node_cartesian>(par, init_data, init_config);});
-    coord_types.emplace("axis_symm", [this]{return new data_2d<data_node_axys_symm>(par, init_data, init_config);});
-  }*/
+  void prepare_possible_nodes_map() { //must be called after all data getting from config!!!!
+    data_creator.emplace("cartesian", [this]{return new data_2d<data_node_cartesian>(par, init_data, init_config);});
+    data_creator.emplace("axis_symm", [this]{return new data_2d<data_node_axys_symm>(par, init_data, init_config);});
+  }
   void get_init_data_map(json &config_data, std::string key);
   void get_data_from_config(
       std::ifstream &input, std::string& output_folder);
@@ -63,6 +62,8 @@ calculation_info::calculation_info(
   par.delta_y = (par.y_top - par.y_bottom)/par.size_y;
   par.x0 = par.size_x / 2;
   par.y0 = par.size_y / 2;
+
+  prepare_possible_nodes_map();
 }
 
 void calculation_info::get_init_data_map(

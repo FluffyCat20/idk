@@ -30,21 +30,73 @@ struct calculation_params {
   double courant_number;
   double gamma;
   double gap_btw_sw_and_bound;
+  bool stop_now = false;
 };
 
+class base_data_2d {
+public:
+  virtual std::vector<std::vector<data_node_2d>>& get_changeable_mesh() = 0;
+  virtual const std::vector<std::vector<data_node_2d>>& get_const_mesh() const = 0;
+  virtual const std::vector<std::list<std::pair<double, double>>>&
+    get_const_pressure_sensors_on_wall() const = 0;
+
+
+  virtual void do_one_step(const base_data_2d& prev_grid) = 0;
+  virtual void shock_wave_initialization(
+    double& rho, double& p, double& u,
+    double rho1, double p1, double& u1,
+    double mach) = 0; //1 - before sw, no ind - after sw
+  virtual double calc_delta_t() = 0;
+  virtual void lax_friedrichs(const base_data_2d& prev_grid) = 0;
+  virtual void mac_cormack(const base_data_2d& prev_grid) = 0;
+  virtual void mac_cormack_predictor_step(base_data_2d& predictor_grid) const = 0;
+  virtual void mac_cormack_corrector_step(
+    const base_data_2d& prev_grid, const base_data_2d& predictor_grid) = 0;
+  virtual void mac_cormack_with_davis(const base_data_2d& prev_grid) = 0;
+  virtual void calc_davis_artificial_viscosity() = 0;
+
+  virtual void calc_values_and_fluxes() = 0;
+  virtual void boundary_conditions() = 0;
+  virtual void boundary_conditions_for_bubble_near_wall() = 0;
+  virtual void boundary_conditions_for_bubble_near_wall_simmetry_on_bottom() = 0;
+  virtual void boundary_conditions_default() = 0;
+
+  virtual void update_pressure_sensors_on_wall(double t) = 0;
+  virtual void get_pressure_sensors_from_files(const std::string& sensors_folder) = 0;
+
+
+  virtual void calc_pressure_after_reflected_shock_no_bubble(
+    const double rho2, const double p2, const double u2,
+    double& p3) = 0;
+  /// 1 - before incident shock
+  /// 2 - after incident shock
+  /// 3 - between the shock and the wall after the shock's reflection
+  /// u1 = u3 = 0 - boundary condition on the wall
+
+  virtual std::vector<double> calc_pressure_impulses_basic(
+    double t0, double p0) const = 0;
+  /// excess pressure sum comparing to the pressure behind reflected shock
+  /// t0 - time of coming of the initial shock on the wall (with no bubble)
+  /// p0 - pressure behind reflected shock (with no bubble)
+
+
+  virtual std::vector<double> calc_pressure_impulses_max_peak_bfr_p0
+    (double p0) const = 0;
+  /// area of highest peak over the line p = p0
+  /// p0 - pressure behind reflected shock (with no bubble)
+
+  virtual std::vector<double>
+  calc_pressure_impulses_max_peak_bounded_by_local_min() const = 0;
+  ///area of highest peak bounded on the left&right by local minima
+
+  virtual base_data_2d& operator=(const base_data_2d& other) = 0;
+};
+
+
 template <class node_t>
-class data_2d {
+class data_2d : public base_data_2d {
 
 public:
-
-  std::vector<std::vector<node_t>> mesh;
-  calculation_params par;
-
-  bool stop_now = false;
-
-  std::vector<std::list<std::pair<double, double>>>
-    pressure_sensors_on_wall; //<time, pressure> in a wall point
-
 
   data_2d(const calculation_params& par_,
           std::unordered_map<std::string, double>& init_data,
@@ -228,57 +280,84 @@ public:
 
   }
 
+  data_2d(const base_data_2d& other) :
+    data_2d(dynamic_cast<const data_2d&>(other)) {}
+
 public:
 
-  void do_one_step(const data_2d<node_t>& prev_grid);
+  std::vector<std::vector<data_node_2d>>& get_changeable_mesh() override {
+    return mesh;
+  }
+
+  const std::vector<std::vector<data_node_2d>>& get_const_mesh() const override {
+    return mesh_ref;
+  }
+
+  const std::vector<std::list<std::pair<double, double>>>&
+    get_const_pressure_sensors_on_wall() const override {
+    return pressure_sensors_on_wall;
+  }
+
+  void do_one_step(const base_data_2d& prev_grid) override;
   void shock_wave_initialization(
     double& rho, double& p, double& u,
     double rho1, double p1, double& u1,
-    double mach); //1 - before sw, no ind - after sw
-  double calc_delta_t();
-  void lax_friedrichs(const data_2d& prev_grid);
-  void mac_cormack(const data_2d& prev_grid);
-  void mac_cormack_predictor_step(data_2d& predictor_grid) const;
+    double mach) override; //1 - before sw, no ind - after sw
+  double calc_delta_t() override;
+  void lax_friedrichs(const base_data_2d& prev_grid) override;
+  void mac_cormack(const base_data_2d& prev_grid) override;
+  void mac_cormack_predictor_step(base_data_2d& predictor_grid) const override;
   void mac_cormack_corrector_step(
-    const data_2d& prev_grid, const data_2d& predictor_grid);
-  void mac_cormack_with_davis(const data_2d& prev_grid);
-  void calc_davis_artificial_viscosity();
+    const base_data_2d& prev_grid, const base_data_2d& predictor_grid) override;
+  void mac_cormack_with_davis(const base_data_2d& prev_grid) override;
+  void calc_davis_artificial_viscosity() override;
 
-  void calc_values_and_fluxes();
-  void boundary_conditions();
-  void boundary_conditions_for_bubble_near_wall();
-  void boundary_conditions_for_bubble_near_wall_simmetry_on_bottom();
-  void boundary_conditions_default();
+  void calc_values_and_fluxes() override;
+  void boundary_conditions() override;
+  void boundary_conditions_for_bubble_near_wall() override;
+  void boundary_conditions_for_bubble_near_wall_simmetry_on_bottom() override;
+  void boundary_conditions_default() override;
 
-  void update_pressure_sensors_on_wall(double t);
-  void get_pressure_sensors_from_files(const std::string& sensors_folder);
+  void update_pressure_sensors_on_wall(double t) override;
+  void get_pressure_sensors_from_files(const std::string& sensors_folder) override;
 
 
   void calc_pressure_after_reflected_shock_no_bubble(
     const double rho2, const double p2, const double u2,
-    double& p3);
+    double& p3) override;
   /// 1 - before incident shock
   /// 2 - after incident shock
   /// 3 - between the shock and the wall after the shock's reflection
   /// u1 = u3 = 0 - boundary condition on the wall
 
   std::vector<double> calc_pressure_impulses_basic(
-    double t0, double p0) const;
+    double t0, double p0) const override;
   /// excess pressure sum comparing to the pressure behind reflected shock
   /// t0 - time of coming of the initial shock on the wall (with no bubble)
   /// p0 - pressure behind reflected shock (with no bubble)
 
 
   std::vector<double> calc_pressure_impulses_max_peak_bfr_p0
-    (double p0) const;
+    (double p0) const override;
   /// area of highest peak over the line p = p0
   /// p0 - pressure behind reflected shock (with no bubble)
 
   std::vector<double>
-  calc_pressure_impulses_max_peak_bounded_by_local_min() const;
+  calc_pressure_impulses_max_peak_bounded_by_local_min() const override;
   ///area of highest peak bounded on the left&right by local minima
 
-  data_2d& operator=(const data_2d& other);
+  base_data_2d& operator=(const base_data_2d& other) override;
+
+//private:
+  std::vector<std::vector<node_t>> mesh;
+  std::vector<std::vector<data_node_2d>>& mesh_ref;
+  calculation_params par;
+
+
+
+  std::vector<std::list<std::pair<double, double>>>
+    pressure_sensors_on_wall; //<time, pressure> in a wall point
+
 };
 
 #include "data_2d.inl"
