@@ -25,6 +25,8 @@ public:
   virtual ~data_node_2d(){};
 
 protected:
+  data_node_2d() {};
+
   data_node_2d(double rho_, double p_, double u_, double v_)
     : rho(rho_), p(p_), u(u_), v(v_) {
     u_abs = std::sqrt(u * u + v * v);
@@ -79,6 +81,20 @@ public:
     calc_U_when_values_known();
     calc_F_when_values_known();
     calc_G_when_values_known();
+  }
+
+  data_node_cartesian(const data_node_2d* node_ptr) :
+    data_node_2d(){
+    rho = node_ptr->rho;
+    p = node_ptr->p;
+    u = node_ptr->u;
+    v = node_ptr->v;
+    u_abs = node_ptr->u_abs;
+    e = node_ptr->e;
+    a = node_ptr->a;
+    U = node_ptr->U;
+    F = node_ptr->F;
+    G = node_ptr->G;
   }
 
 };

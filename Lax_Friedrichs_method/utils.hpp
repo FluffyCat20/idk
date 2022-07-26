@@ -1,7 +1,7 @@
 #include "data_2d.h"
 #include <functional>
 
-void calc_state_after_shock_wave(
+inline void calc_state_after_shock_wave(
     double& rho, double& p, double& u,
     const double rho0, const double p0, const double mach) {
   /// no index - after shock wave
@@ -16,7 +16,7 @@ void calc_state_after_shock_wave(
   u = u0*rho0/rho;
 }
 
-double newton_solver(
+inline double newton_solver(
     std::function<double(double)> func,
     std::function<double(double)> func_der) {
   const double max_steps_number = 1000;

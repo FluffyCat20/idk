@@ -8,18 +8,19 @@ class data_2d_writer {
 
 public:
 
-  data_2d_writer(const data_2d& data_,
+  data_2d_writer(const std::vector<std::vector<data_node_2d*>>& mesh_,
+      const calculation_info& calc_info,
       const std::string& output_folder)
-    : data(data_) {
+    : mesh(mesh_), par(calc_info.par) {
     std::string grid_ascii_outfile_name =
-      output_folder + data.method_name + std::to_string(data.size_x)
-      + "x" + std::to_string(data.size_y) + ".dat";
+      output_folder + calc_info.method_name + std::to_string(par.size_x)
+      + "x" + std::to_string(par.size_y) + ".dat";
     grid_ascii_outfile.open(grid_ascii_outfile_name);
 
     std::string symmetry_axis_outfile_name =
       output_folder + "rho_p_on_symmetry_axis" +
-      std::to_string(data.size_x) + "x" +
-      std::to_string(data.size_y) + ".dat";
+      std::to_string(par.size_x) + "x" +
+      std::to_string(par.size_y) + ".dat";
     symmetry_axis_outfile.open(symmetry_axis_outfile_name);
   }
 
@@ -36,10 +37,14 @@ public:
   void output_on_symmetry_axis_first();
   void output_on_symmetry_axis_for_current_time(double time);
 
-  void output_pressure_sensors_on_wall(const std::string& output_folder);
+  void output_pressure_sensors_on_wall(
+    const std::string& output_folder,
+      const std::vector<std::list<std::pair<double, double>>>&
+        pressure_sensors_on_wall);
 
 private:
-  const data_2d& data;
+  const std::vector<std::vector<data_node_2d*>>& mesh;
+  const calculation_params& par;
 
   std::string output_folder;
 
