@@ -58,23 +58,13 @@ void mesh_and_common_methods::calc_delta_t(double current_time) {
   return;
 }
 
-void mesh_and_common_methods::calc_values_and_fluxes() {
-  for (size_t i = 1; i < par.size_y - 1; ++i) {
-    for (size_t j = 1; j < par.size_x - 1; ++j) {
-      mesh[i][j]->calc_values_from_U();
-      mesh[i][j]->calc_F_when_values_known();
-      mesh[i][j]->calc_G_when_values_known();
-    }
-  }
-}
-
 void mesh_and_common_methods::boundary_conditions() {
 
   //if (init_config["bubble_near_wall"]) {
     //boundary_conditions_for_bubble_near_wall();
-    boundary_conditions_for_bubble_near_wall_simmetry_on_bottom();
+    //boundary_conditions_for_bubble_near_wall_simmetry_on_bottom();
   //} else {
-  //  boundary_conditions_default();
+  boundary_conditions_default();
   //}
 }
 

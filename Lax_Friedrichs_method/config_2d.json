@@ -1,5 +1,5 @@
 {
-	"method_name": "mac_cormack",
+	"method_name": "mac_cormack+davis",
 	"bounds": {
     "x_left": -0.8,
     "x_right": 0.5,
@@ -7,12 +7,12 @@
     "y_top": 1.0
   },
 
-  "coord_type": "cartesian",
+  "coord_type": "axis_symm",
 
-  "output_folder": "D:/gas_dyn/trash_can/folder/",
+  "output_folder": "D:/gas_dyn/trash_can/",
 
   "bubble_near_wall": {
-  	"on": true,
+  	"on": false,
   	
   	"x0": 0.0,
   	"y0": 0.0,
@@ -65,7 +65,7 @@
  	},
 
   "vertical_flow": {
-  	"on": false,
+  	"on": true,
   	"rho_up": 1.0,
     "rho_down": 0.125,
     "p_up": 1.0,
@@ -77,7 +77,7 @@
   },
 
   "shock_wave": {
-  	"on": false,
+  	"on": true,
   	"mach": 3.0
   },
 
@@ -92,7 +92,7 @@
   "size_x": 195,
   "size_y": 150,
 
-  "t_end": 1.0,
+  "t_end": 0.5,
   "time_step": 0.01,
-  "courant_number": 0.9
+  "courant_number": 0.8
 }

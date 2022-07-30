@@ -5,19 +5,21 @@
 
 #include <vector>
 #include <cmath>
+#include <iostream>
 
 class data_node_2d {
 public:
-  std::vector<double> U;//rho, rho*u, rho*v, e
-  std::vector<double> F, G;
-  //F: rho*u, p + rho*u^2, rho*u*v, (e + p)*u
-  //G: rho*v, rho*u*v, p + rho*v^2, (e + p)*v
+  std::vector<double> U;
+  std::vector<double> F, G, H;
   double rho, p, u, v, u_abs, e, a; //u_abs = velocity vector length
+  double r; //for axisymm case
   static double gamma;
 
   virtual void calc_U_when_values_known() = 0;
   virtual void calc_F_when_values_known() = 0;
   virtual void calc_G_when_values_known() = 0;
+
+  virtual void calc_H_when_values_known() = 0;
 
   virtual void calc_values_from_U() = 0;
 
@@ -35,15 +37,29 @@ protected:
     U.resize(4);
     F.resize(4);
     G.resize(4);
-    /*calc_U_when_values_known();
-    calc_F_when_values_known();
-    calc_G_when_values_known();*/
+  }
+
+  data_node_2d(const data_node_2d* node_ptr) {
+    rho = node_ptr->rho;
+    p = node_ptr->p;
+    u = node_ptr->u;
+    v = node_ptr->v;
+    u_abs = node_ptr->u_abs;
+    e = node_ptr->e;
+    a = node_ptr->a;
+    U = node_ptr->U;
+    F = node_ptr->F;
+    G = node_ptr->G;
   }
 
 };
 
 
 class data_node_cartesian : public data_node_2d {
+  //U: rho, rho*u, rho*v, e
+  //F: rho*u, p + rho*u^2, rho*u*v, (e + p)*u
+  //G: rho*v, rho*u*v, p + rho*v^2, (e + p)*v
+
 public:
 
   void calc_U_when_values_known() override {
@@ -65,6 +81,11 @@ public:
     G[3] = (e + p)*v;
   }
 
+  void calc_H_when_values_known() override {
+    std::cout << "WRONG: trying to calculate H in cartesian case" << std::endl;
+    return;
+  }
+
   void calc_values_from_U() override {
     rho = U[0];
     u = U[1]/rho;
@@ -84,23 +105,11 @@ public:
   }
 
   data_node_cartesian(const data_node_2d* node_ptr) :
-    data_node_2d(){
-    rho = node_ptr->rho;
-    p = node_ptr->p;
-    u = node_ptr->u;
-    v = node_ptr->v;
-    u_abs = node_ptr->u_abs;
-    e = node_ptr->e;
-    a = node_ptr->a;
-    U = node_ptr->U;
-    F = node_ptr->F;
-    G = node_ptr->G;
-  }
+    data_node_2d(node_ptr){}
 
 };
 
-////H ещё нету вообще!!!!
-class data_node_axys_symm : public data_node_2d {
+class data_node_axisymm : public data_node_2d {
 public:
 
   void calc_U_when_values_known() override {
@@ -122,6 +131,13 @@ public:
     G[3] = (e + p) * v * r;
   }
 
+  void calc_H_when_values_known() override {
+    H[0] = 0;
+    H[1] = 0;
+    H[2] = p;
+    H[3] = 0;
+  }
+
   void calc_values_from_U() override {
     rho = U[0] / r;
     u = U[1] / U[0];
@@ -132,16 +148,22 @@ public:
     p = (gamma - 1)*(e - rho*u_abs*u_abs*0.5);
   }
 
-  data_node_axys_symm(
+  data_node_axisymm(
       double rho_, double p_, double u_, double v_, double r_) :
-    data_node_2d(rho_, p_, u_, v_), r(r_) {
+    data_node_2d(rho_, p_, u_, v_) {
+    r = r_;
     calc_U_when_values_known();
     calc_F_when_values_known();
     calc_G_when_values_known();
+    H.resize(4);
+    calc_H_when_values_known();
   }
 
-private:
-  double r;
+  data_node_axisymm(const data_node_2d* node_ptr) :
+    data_node_2d(node_ptr) {
+    H = node_ptr->H;
+    r = node_ptr->r;
+  }
 };
 
 

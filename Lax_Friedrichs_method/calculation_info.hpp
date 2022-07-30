@@ -71,7 +71,7 @@ private:
 
   /*void prepare_possible_nodes_map() { //must be called after all data getting from config!!!!
     coord_types.emplace("cartesian", [this]{return new data_2d<data_node_cartesian>(par, init_data, init_config);});
-    coord_types.emplace("axis_symm", [this]{return new data_2d<data_node_axys_symm>(par, init_data, init_config);});
+    coord_types.emplace("axis_symm", [this]{return new data_2d<data_node_axisymm>(par, init_data, init_config);});
   }*/
   void get_init_data_map(json &config_data, std::string key);
   void get_data_from_config(

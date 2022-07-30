@@ -25,7 +25,7 @@ int main(int argc, char* argv[]) {
     break;
   }
   case 1: {
-    grid_ptr.reset(new mesh_and_methods_axis_symm(calc_info));
+    grid_ptr.reset(new mesh_and_methods_axisymm(calc_info));
     break;
   }
   default: {
@@ -74,11 +74,11 @@ int main(int argc, char* argv[]) {
   std::shared_ptr<mesh_and_common_methods> new_grid_ptr;
   switch (calc_info.coord_type_number) {
   case 0: {
-    new_grid_ptr.reset(new mesh_and_methods_cartesian(calc_info));
+    new_grid_ptr.reset(new mesh_and_methods_cartesian(grid_ptr));
     break;
   }
   case 1: {
-    new_grid_ptr.reset(new mesh_and_methods_axis_symm(calc_info));
+    new_grid_ptr.reset(new mesh_and_methods_axisymm(grid_ptr));
     break;
   }
   default: {

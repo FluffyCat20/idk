@@ -1,11 +1,12 @@
 #include "data_2d.h"
 
-void mesh_and_methods_cartesian::calc_values_and_fluxes() {
+void mesh_and_methods_axisymm::calc_values_and_fluxes() {
   for (size_t i = 1; i < par.size_y - 1; ++i) {
     for (size_t j = 1; j < par.size_x - 1; ++j) {
       mesh[i][j]->calc_values_from_U();
       mesh[i][j]->calc_F_when_values_known();
       mesh[i][j]->calc_G_when_values_known();
+      mesh[i][j]->calc_H_when_values_known();
     }
   }
 }
@@ -13,38 +14,18 @@ void mesh_and_methods_cartesian::calc_values_and_fluxes() {
 /////////////NUMERICAL METHODS:////////////////////
 
 
-
-void mesh_and_methods_cartesian::lax_friedrichs(
-    std::shared_ptr<const mesh_and_common_methods> prev_grid_ptr) {
-  auto prev_mesh = prev_grid_ptr->get_mesh_const_ref();
-  for (size_t i = 1; i < par.size_y - 1; ++i) {
-    for (size_t j = 1; j < par.size_x - 1; ++j) {
-      auto up = prev_mesh[i-1][j];
-      auto down = prev_mesh[i+1][j];
-      auto left = prev_mesh[i][j-1];
-      auto right = prev_mesh[i][j+1];
-      for (size_t k = 0; k < 4; ++k) {
-        mesh[i][j]->U[k] = 0.25*(up->U[k] + down->U[k] + left->U[k] + right->U[k]) -
-          0.5*par.delta_t/par.delta_x * (right->F[k] - left->F[k]) -
-          0.5*par.delta_t/par.delta_y * (up->G[k] - down->G[k]);
-      }
-    }
-  }
-  calc_values_and_fluxes();
-  boundary_conditions();
-}
-
-void mesh_and_methods_cartesian::mac_cormack(
+void mesh_and_methods_axisymm::mac_cormack(
     std::shared_ptr<const mesh_and_common_methods> prev_grid_ptr) {
   std::shared_ptr<mesh_and_common_methods> predictor_grid_ptr (
-    new mesh_and_methods_cartesian(prev_grid_ptr));
+    new mesh_and_methods_axisymm(prev_grid_ptr));
   predictor_grid_ptr->mac_cormack_predictor_step(prev_grid_ptr);
   mac_cormack_corrector_step(prev_grid_ptr, predictor_grid_ptr);
   calc_values_and_fluxes();
   boundary_conditions();
 }
 
-void mesh_and_methods_cartesian::mac_cormack_predictor_step(
+
+void mesh_and_methods_axisymm::mac_cormack_predictor_step(
     std::shared_ptr<const mesh_and_common_methods> prev_grid_ptr) {
   //must be called from predictor grid
 
@@ -56,7 +37,8 @@ void mesh_and_methods_cartesian::mac_cormack_predictor_step(
         mesh[i][j]->U[k] = prev_mesh[i][j]->U[k]
           - par.delta_t*((prev_mesh[i][j+1]->F[k]
           - prev_mesh[i][j]->F[k])/par.delta_x
-          + (prev_mesh[i+1][j]->G[k] - prev_mesh[i][j]->G[k])/par.delta_y);
+          + (prev_mesh[i+1][j]->G[k] - prev_mesh[i][j]->G[k])/par.delta_y
+          - prev_mesh[i][j]->H[k]);
       }
     }
   }
@@ -64,7 +46,8 @@ void mesh_and_methods_cartesian::mac_cormack_predictor_step(
   boundary_conditions();
 }
 
-void mesh_and_methods_cartesian::mac_cormack_corrector_step(
+
+void mesh_and_methods_axisymm::mac_cormack_corrector_step(
     std::shared_ptr<const mesh_and_common_methods> prev_grid,
     std::shared_ptr<const mesh_and_common_methods> predictor_grid) {
   auto prev_mesh = prev_grid->get_mesh_const_ref();
@@ -73,19 +56,21 @@ void mesh_and_methods_cartesian::mac_cormack_corrector_step(
     for (size_t j = 1; j < par.size_x - 1; ++j) {
       for (size_t k = 0; k < 4; ++k) {
         mesh[i][j]->U[k] =
-          0.5*(prev_mesh[i][j]->U[k] + predictor_mesh[i][j]->U[k])
-          - 0.5*par.delta_t*((predictor_mesh[i][j]->F[k] - predictor_mesh[i][j - 1]->F[k])/par.delta_x
-          + (predictor_mesh[i][j]->G[k] - predictor_mesh[i - 1][j]->G[k])/par.delta_y);
+          0.5*((prev_mesh[i][j]->U[k] + predictor_mesh[i][j]->U[k])
+          - par.delta_t*((predictor_mesh[i][j]->F[k] - predictor_mesh[i][j - 1]->F[k])/par.delta_x
+          + (predictor_mesh[i][j]->G[k] - predictor_mesh[i - 1][j]->G[k])/par.delta_y)
+          + par.delta_t * predictor_mesh[i][j]->H[k]);
       }
     }
   }
 }
 
-void mesh_and_methods_cartesian::mac_cormack_with_davis(
+
+void mesh_and_methods_axisymm::mac_cormack_with_davis(
     std::shared_ptr<const mesh_and_common_methods> prev_grid_ptr) {
 
   std::shared_ptr<mesh_and_common_methods> predictor_grid_ptr (
-    new mesh_and_methods_cartesian(prev_grid_ptr));
+    new mesh_and_methods_axisymm(prev_grid_ptr));
   predictor_grid_ptr->mac_cormack_predictor_step(prev_grid_ptr);
   mac_cormack_corrector_step(prev_grid_ptr, predictor_grid_ptr);
   boundary_conditions();
@@ -111,7 +96,7 @@ inline double phi(double rp, double rm) { //rp = r+, rm = r-
          std::min({2*rm, rp, 1.0}) });
 }
 
-void mesh_and_methods_cartesian::calc_davis_artificial_viscosity() {
+void mesh_and_methods_axisymm::calc_davis_artificial_viscosity() {
   std::vector<std::vector<double>>
     r_x_plus(par.size_y, std::vector<double>(par.size_x)),
     r_x_minus(par.size_y, std::vector<double>(par.size_x)),
@@ -215,7 +200,7 @@ void mesh_and_methods_cartesian::calc_davis_artificial_viscosity() {
 //in boundary conditions, you need to operate with the whole nodes of mesh
 //so don't forget they're pointers! more * motherfucker
 
-void mesh_and_methods_cartesian::boundary_conditions_default() {
+void mesh_and_methods_axisymm::boundary_conditions_default() {
   for (size_t y = 1; y < par.size_y - 1; ++y) {
     *mesh[y][0] = *mesh[y][1];
     *mesh[y][par.size_x - 1] = *mesh[y][par.size_x - 2];
@@ -224,32 +209,22 @@ void mesh_and_methods_cartesian::boundary_conditions_default() {
     *mesh[0][x] = *mesh[1][x];
     *mesh[par.size_y - 1][x] = *mesh[par.size_y - 2][x];
   }
-}
 
-void mesh_and_methods_cartesian::boundary_conditions_for_bubble_near_wall() {
-  // solid wall on the right:
-  for (size_t y = 1; y < par.size_y - 1; ++y) {
-    data_node_2d& node_to_change = *mesh[y][par.size_x - 1];
-    node_to_change = *mesh[y][par.size_x - 2];
-    node_to_change.u *= -1;
-    node_to_change.U[1] *= -1;
-    node_to_change.F[0] *= -1;
-    node_to_change.F[2] *= -1;
-    node_to_change.F[3] *= -1;
-    node_to_change.G[1] *= -1;
-  }
-
-  // d/dn = 0 on other bounds:
-  for (size_t y = 1; y < par.size_y - 1; ++y) {
-    *mesh[y][0] = *mesh[y][1];
-  }
+  //v=0 on bottom:
   for (size_t x = 1; x < par.size_x - 1; ++x) {
-    *mesh[0][x] = *mesh[1][x];
-    *mesh[par.size_y - 1][x] = *mesh[par.size_y - 2][x];
+    data_node_2d& node_to_change = *mesh[0][x];
+    node_to_change.v = 0.0;
+    node_to_change.U[2] = 0.0;
+    node_to_change.F[2] = 0.0;
+    node_to_change.G[0] = 0.0;
+    node_to_change.G[1] = 0.0;
+    node_to_change.G[2] = node_to_change.p * node_to_change.r;
+    node_to_change.G[3] = 0.0;
   }
 }
 
-void mesh_and_methods_cartesian::
+
+void mesh_and_methods_axisymm::
 boundary_conditions_for_bubble_near_wall_simmetry_on_bottom() {
   // solid wall on the right:
   for (size_t y = 1; y < par.size_y - 1; ++y) {
@@ -263,19 +238,20 @@ boundary_conditions_for_bubble_near_wall_simmetry_on_bottom() {
     node_to_change.G[1] *= -1;
   }
 
-  // d/dn = 0 on left&right bounds and symmetry on bottom:
+  // d/dn = 0 on left&right&top bounds and symmetry on bottom:
   for (size_t y = 1; y < par.size_y - 1; ++y) {
     *mesh[y][0] = *mesh[y][1];
   }
   for (size_t x = 1; x < par.size_x - 1; ++x) {
     data_node_2d& node_to_change = *mesh[0][x];
     node_to_change = *mesh[1][x];
-    node_to_change.v *= -1;
-    node_to_change.U[2] *= -1;
-    node_to_change.F[2] *= -1;
-    node_to_change.G[0] *= -1;
-    node_to_change.G[1] *= -1;
-    node_to_change.G[3] *= -1;
+    node_to_change.v = 0.0;
+    node_to_change.U[2] = 0.0;
+    node_to_change.F[2] = 0.0;
+    node_to_change.G[0] = 0.0;
+    node_to_change.G[1] = 0.0;
+    node_to_change.G[2] = node_to_change.p * node_to_change.r;
+    node_to_change.G[3] = 0.0;
 
     *mesh[par.size_y - 1][x] = *mesh[par.size_y - 2][x];
 

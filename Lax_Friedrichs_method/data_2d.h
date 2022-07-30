@@ -2,7 +2,6 @@
 #define DATA_2D_H
 #pragma once
 
-#include <iostream>
 #include <iomanip>
 #include <vector>
 #include <list>
@@ -57,8 +56,10 @@ public:
   void set_delta_t(double d_t) {
     par.delta_t = d_t;
   }
-  void calc_values_and_fluxes();
   void boundary_conditions();
+
+
+  virtual void calc_values_and_fluxes() = 0;
 
   virtual void lax_friedrichs(
     std::shared_ptr<const mesh_and_common_methods> prev_grid) = 0;
@@ -289,6 +290,8 @@ public:
 
   };
 
+  void calc_values_and_fluxes() override;
+
   virtual void lax_friedrichs(
     std::shared_ptr<const mesh_and_common_methods> prev_grid_ptr) override;
   virtual void mac_cormack(
@@ -307,12 +310,125 @@ public:
   virtual void boundary_conditions_default() override;
 };
 
-class mesh_and_methods_axis_symm : public mesh_and_common_methods {
+class mesh_and_methods_axisymm : public mesh_and_common_methods {
 public:
-  mesh_and_methods_axis_symm(const calculation_info& calc_info) :
+  mesh_and_methods_axisymm(const calculation_info& calc_info) :
     mesh_and_common_methods(calc_info.par) {
+    auto init_config = calc_info.init_config;
+    auto init_data = calc_info.init_data;
+
+    if (init_config["vertical_flow"]) {
+      if (init_config["shock_wave"]) {
+        shock_wave_initialization(
+          init_data["rho_down"], init_data["p_down"], init_data["v_down"],
+          init_data["rho_up"], init_data["p_up"], init_data["v_up"],
+          init_data["mach"]);
+      }
+
+      for (size_t y = 0; y < par.y0; ++y) {
+        for (size_t x = 0; x < par.size_x; ++x) {
+          mesh[y].push_back(new data_node_axisymm(
+              init_data["rho_up"],
+              init_data["p_up"], init_data["u_up"],
+              init_data["v_up"], y * par.delta_y));
+        }
+      }
+
+      for (size_t y = par.y0; y < par.size_y; ++y) {
+        for (size_t x = 0; x < par.size_x; ++x) {
+          mesh[y].push_back(new data_node_axisymm(
+              init_data["rho_down"],
+              init_data["p_down"], init_data["u_down"],
+              init_data["v_down"], y * par.delta_y));
+        }
+      }
+    }
+
+    if (init_config["bubble_near_wall"]) {
+      double nodes_in_1_x_double = static_cast<double> (par.size_x) / (par.x_right - par.x_left);
+      double nodes_in_1_y_double = static_cast<double> (par.size_y) / (par.y_top - par.y_bottom);
+      double eps = 1e-06;
+      if (std::abs(nodes_in_1_x_double - nodes_in_1_y_double) > eps) {
+        std::cout << std::abs(nodes_in_1_x_double - nodes_in_1_y_double) <<
+          " < " << eps << std::endl;
+        std::cout << "you fucked up: different scales for x, y" << std::endl;
+        return;
+      }
+      size_t nodes_in_1_x = std::round(nodes_in_1_x_double);
+      size_t nodes_in_1_y = std::round(nodes_in_1_y_double);
+      par.y0 = (init_data["y0"] - par.y_bottom) * nodes_in_1_y;//пидорство, теперь в calc_info другие параметры
+      par.x0 = (init_data["x0"] - par.x_left) * nodes_in_1_x;
+      double rho_after_sw, p_after_sw, u_after_sw;
+      double u_bfr_sw_if_sw_stays;
+      shock_wave_initialization(rho_after_sw, p_after_sw, u_after_sw,
+        init_data["rho_around_bubble"], init_data["p_around_bubble"],
+        u_bfr_sw_if_sw_stays, init_data["mach"]);
+      par.D_of_initial_shock = u_bfr_sw_if_sw_stays; //we assume there that u before sw = 0 in config!!!
+      u_after_sw = - u_after_sw + u_bfr_sw_if_sw_stays;  //we assume there that u before sw = 0 in config!!!
+      double v_after_sw = 0.0;
+      size_t shock_wave_initial_x = par.gap_btw_sw_and_bound * nodes_in_1_x;
+      double rho_in_bubble = init_data["rho_around_bubble"] * init_data["omega"];
+      size_t a = init_data["a"] * nodes_in_1_x;
+      double b_div_by_a = init_data["b_div_by_a"];
+      size_t b = static_cast<size_t>(a * b_div_by_a);
+      for (size_t y = 0; y < par.size_y; ++y) {
+        int y_diff = y - par.y0;
+        size_t left_bubble_edge = par.x0;
+        size_t right_bubble_edge = par.x0;
+        if (std::abs(y_diff) <= b) {
+          size_t bubble_x = static_cast<size_t>(
+            std::sqrt(a*a - y_diff*y_diff/b_div_by_a/b_div_by_a));
+          left_bubble_edge -= bubble_x;
+          right_bubble_edge += bubble_x;
+        }
+        for (size_t x = 0; x < shock_wave_initial_x; ++x) {
+          mesh[y].push_back(new data_node_axisymm(
+            rho_after_sw, p_after_sw, u_after_sw, v_after_sw, y * par.delta_y));
+        }
+        for (size_t x = shock_wave_initial_x; x < left_bubble_edge; ++x) {
+          mesh[y].push_back(new data_node_axisymm(
+            init_data["rho_around_bubble"], init_data["p_around_bubble"],
+            init_data["u_around_bubble"], init_data["v_around_bubble"], y * par.delta_y));
+        }
+
+        if (left_bubble_edge == par.x0 && right_bubble_edge == par.x0) {
+          mesh[y].push_back(new data_node_axisymm(
+            init_data["rho_around_bubble"], init_data["p_around_bubble"],
+            init_data["u_around_bubble"], init_data["v_around_bubble"], y * par.delta_y));
+        } else {
+          for (size_t x = left_bubble_edge; x < right_bubble_edge + 1; ++x) {
+            mesh[y].push_back(new data_node_axisymm(
+              rho_in_bubble, init_data["p_around_bubble"],
+              init_data["u_around_bubble"], init_data["v_around_bubble"], y * par.delta_y));
+          }
+        }
+
+        for (size_t x = right_bubble_edge + 1; x < par.size_x; ++x) {
+          mesh[y].push_back(new data_node_axisymm(
+            init_data["rho_around_bubble"], init_data["p_around_bubble"],
+            init_data["u_around_bubble"], init_data["v_around_bubble"], y * par.delta_y));
+        }
+      }
+    }
 
   }
+
+  mesh_and_methods_axisymm(
+      std::shared_ptr<const mesh_and_common_methods> other_grid) :
+    mesh_and_common_methods(other_grid->get_params_const_ref()){
+
+    auto other_mesh = other_grid->get_mesh_const_ref();
+    mesh.resize(par.size_y);
+    for (size_t y = 0; y < mesh.size(); ++y) {
+      mesh[y].reserve(par.size_x);
+      for (size_t x = 0; x < par.size_x; ++x) {
+        mesh[y].push_back(new data_node_axisymm(other_mesh[y][x]));
+      }
+    }
+  }
+
+
+  void calc_values_and_fluxes() override;
 
   virtual void lax_friedrichs(
       std::shared_ptr<const mesh_and_common_methods> prev_grid_ptr) override {
@@ -321,19 +437,19 @@ public:
     return;
   };
   virtual void mac_cormack(
-      std::shared_ptr<const mesh_and_common_methods> prev_grid_ptr) override {};
+      std::shared_ptr<const mesh_and_common_methods> prev_grid_ptr) override;
   virtual void mac_cormack_predictor_step(
-      std::shared_ptr<const mesh_and_common_methods> predictor_grid) override {};
+      std::shared_ptr<const mesh_and_common_methods> predictor_grid) override;
   virtual void mac_cormack_corrector_step(
     std::shared_ptr<const mesh_and_common_methods> prev_grid,
-      std::shared_ptr<const mesh_and_common_methods> predictor_grid) override {};
+      std::shared_ptr<const mesh_and_common_methods> predictor_grid) override;
   virtual void mac_cormack_with_davis(
-      std::shared_ptr<const mesh_and_common_methods> prev_grid) override {};
-  virtual void calc_davis_artificial_viscosity() override {};
+      std::shared_ptr<const mesh_and_common_methods> prev_grid) override;
+  virtual void calc_davis_artificial_viscosity() override;
 
   virtual void boundary_conditions_for_bubble_near_wall() override {};
-  virtual void boundary_conditions_for_bubble_near_wall_simmetry_on_bottom() override {};
-  virtual void boundary_conditions_default() override {};
+  virtual void boundary_conditions_for_bubble_near_wall_simmetry_on_bottom() override;
+  virtual void boundary_conditions_default() override;
 };
 
 class statistics_manager {
