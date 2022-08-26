@@ -13,7 +13,7 @@ public:
       const std::string& output_folder)
     : mesh(mesh_), par(calc_info.par) {
     std::string grid_ascii_outfile_name =
-      output_folder + calc_info.method_name + std::to_string(par.size_x)
+      output_folder + calc_info.par.method_info.method_name + std::to_string(par.size_x)
       + "x" + std::to_string(par.size_y) + ".dat";
     grid_ascii_outfile.open(grid_ascii_outfile_name);
 

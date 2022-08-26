@@ -3,7 +3,7 @@
 void mesh_and_common_methods::do_step(
     std::shared_ptr<const mesh_and_common_methods> prev_grid_ptr) {
 
-  switch (par.method_number) {
+  switch (par.method_info.method_number) {
 
   case 0: {
     lax_friedrichs(prev_grid_ptr);
@@ -62,9 +62,9 @@ void mesh_and_common_methods::boundary_conditions() {
 
   //if (init_config["bubble_near_wall"]) {
     //boundary_conditions_for_bubble_near_wall();
-    //boundary_conditions_for_bubble_near_wall_simmetry_on_bottom();
+  boundary_conditions_for_bubble_near_wall_simmetry_on_bottom();
   //} else {
-  boundary_conditions_default();
+  //boundary_conditions_default();
   //}
 }
 

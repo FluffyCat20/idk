@@ -2,9 +2,9 @@
 #include "utils.hpp"
 
 void statistics_manager::update_pressure_sensors_on_wall(double t) {
-  size_t y = 0;
+  size_t y = par_ref.y_begin;
   for (auto& sensor : pressure_sensors_on_wall) {
-    sensor.emplace_back(t, mesh_ref[y][par_ref.size_x - 2]->p);
+    sensor.emplace_back(t, mesh_ref[y][par_ref.x_end - 1]->p);
     y++;
   }
 }

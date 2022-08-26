@@ -1,8 +1,8 @@
 #include "data_2d.h"
 
 void mesh_and_methods_cartesian::calc_values_and_fluxes() {
-  for (size_t i = 1; i < par.size_y - 1; ++i) {
-    for (size_t j = 1; j < par.size_x - 1; ++j) {
+  for (size_t i = y_begin_ind(); i < y_end_ind(); ++i) {
+    for (size_t j = x_begin_ind(); j < x_end_ind(); ++j) {
       mesh[i][j]->calc_values_from_U();
       mesh[i][j]->calc_F_when_values_known();
       mesh[i][j]->calc_G_when_values_known();
@@ -17,8 +17,8 @@ void mesh_and_methods_cartesian::calc_values_and_fluxes() {
 void mesh_and_methods_cartesian::lax_friedrichs(
     std::shared_ptr<const mesh_and_common_methods> prev_grid_ptr) {
   auto prev_mesh = prev_grid_ptr->get_mesh_const_ref();
-  for (size_t i = 1; i < par.size_y - 1; ++i) {
-    for (size_t j = 1; j < par.size_x - 1; ++j) {
+  for (size_t i = y_begin_ind(); i < y_end_ind(); ++i) {
+    for (size_t j = x_begin_ind(); j < x_end_ind(); ++j) {
       auto up = prev_mesh[i-1][j];
       auto down = prev_mesh[i+1][j];
       auto left = prev_mesh[i][j-1];
@@ -50,8 +50,8 @@ void mesh_and_methods_cartesian::mac_cormack_predictor_step(
 
   auto prev_mesh = prev_grid_ptr->get_mesh_const_ref();
 
-  for (size_t i = 0; i < par.size_y - 1; ++i) { //0?? not 1??
-    for (size_t j = 0; j < par.size_x - 1; ++j) {
+  for (size_t i = y_begin_ind(); i < y_end_ind(); ++i) {
+    for (size_t j = x_begin_ind(); j < x_end_ind(); ++j) {
       for (size_t k = 0; k < 4; ++k) {
         mesh[i][j]->U[k] = prev_mesh[i][j]->U[k]
           - par.delta_t*((prev_mesh[i][j+1]->F[k]
@@ -69,8 +69,8 @@ void mesh_and_methods_cartesian::mac_cormack_corrector_step(
     std::shared_ptr<const mesh_and_common_methods> predictor_grid) {
   auto prev_mesh = prev_grid->get_mesh_const_ref();
   auto predictor_mesh = predictor_grid->get_mesh_const_ref();
-  for (size_t i = 1; i < par.size_y - 1; ++i) { //size?? not size - 1??
-    for (size_t j = 1; j < par.size_x - 1; ++j) {
+  for (size_t i = y_begin_ind(); i < y_end_ind(); ++i) {
+    for (size_t j = x_begin_ind(); j < x_end_ind(); ++j) {
       for (size_t k = 0; k < 4; ++k) {
         mesh[i][j]->U[k] =
           0.5*(prev_mesh[i][j]->U[k] + predictor_mesh[i][j]->U[k])
@@ -113,19 +113,19 @@ inline double phi(double rp, double rm) { //rp = r+, rm = r-
 
 void mesh_and_methods_cartesian::calc_davis_artificial_viscosity() {
   std::vector<std::vector<double>>
-    r_x_plus(par.size_y, std::vector<double>(par.size_x)),
-    r_x_minus(par.size_y, std::vector<double>(par.size_x)),
-    r_y_plus(par.size_y, std::vector<double>(par.size_x)),
-    r_y_minus(par.size_y, std::vector<double>(par.size_x));
+    r_x_plus(mesh.size(), std::vector<double>(mesh[0].size())),
+    r_x_minus(mesh.size(), std::vector<double>(mesh[0].size())),
+    r_y_plus(mesh.size(), std::vector<double>(mesh[0].size())),
+    r_y_minus(mesh.size(), std::vector<double>(mesh[0].size()));
   std::vector<std::vector<std::vector<double>>>
-    delta_u_x(par.size_y, std::vector<std::vector<double>>(par.size_x, std::vector<double>(4))),
-    delta_u_y(par.size_y, std::vector<std::vector<double>>(par.size_x, std::vector<double>(4))),
-    D_x(par.size_y, std::vector<std::vector<double>>(par.size_x, std::vector<double>(4))),
-    D_y(par.size_y, std::vector<std::vector<double>>(par.size_x, std::vector<double>(4)));
+    delta_u_x(mesh.size(), std::vector<std::vector<double>>(mesh[0].size(), std::vector<double>(4))),
+    delta_u_y(mesh.size(), std::vector<std::vector<double>>(mesh[0].size(), std::vector<double>(4))),
+    D_x(mesh.size(), std::vector<std::vector<double>>(mesh[0].size(), std::vector<double>(4))),
+    D_y(mesh.size(), std::vector<std::vector<double>>(mesh[0].size(), std::vector<double>(4)));
 
   //delta_u calculation:
-  for (size_t i = 0; i < par.size_y - 1; ++i) {
-    for (size_t j = 0; j < par.size_x - 1; ++j) {
+  for (size_t i = 0; i < mesh.size() - 1; ++i) {
+    for (size_t j = 0; j < mesh[0].size() - 1; ++j) {
       for (size_t k = 0; k < 4; ++k) {
         delta_u_x[i][j][k] = mesh[i][j+1]->U[k] - mesh[i][j]->U[k];
         delta_u_y[i][j][k] = mesh[i+1][j]->U[k] - mesh[i][j]->U[k];
@@ -134,8 +134,8 @@ void mesh_and_methods_cartesian::calc_davis_artificial_viscosity() {
   }
 
   //r calculation: //TODO: fix: inner products are calculated twice (save squares?)
-  for (size_t i = 1; i < par.size_y - 1; ++i) {
-    for (size_t j = 1; j < par.size_x - 1; ++j) {
+  for (size_t i = 1; i < mesh.size() - 1; ++i) {
+    for (size_t j = 1; j < mesh[0].size() - 1; ++j) {
       //x-direction
       double product_mid_x = inner_product(delta_u_x[i][j-1], delta_u_x[i][j]);
       double product_left_x = inner_product(delta_u_x[i][j-1], delta_u_x[i][j-1]);
@@ -155,8 +155,8 @@ void mesh_and_methods_cartesian::calc_davis_artificial_viscosity() {
   }
 
   //nu, K, D calculation:
-  for (size_t i = 1; i < par.size_y - 1; ++i) {
-    for (size_t j = 1; j < par.size_x - 1; ++j) {
+  for (size_t i = 1; i < mesh.size() - 1; ++i) {
+    for (size_t j = 1; j < mesh[0].size() - 1; ++j) {
       double lambda = std::max(std::abs(mesh[i][j]->u_abs + mesh[i][j]->a),
                                std::abs(mesh[i][j]->u_abs - mesh[i][j]->a));
       //nu_x, k_x
@@ -184,23 +184,8 @@ void mesh_and_methods_cartesian::calc_davis_artificial_viscosity() {
     }
   }
 
-  for (size_t k = 0; k < 4; ++k) {
-    for (size_t i = 1; i < par.size_y - 1; ++i){
-      D_x[i][0][k] = 0.0;
-      D_x[i][par.size_x - 1][k] = 0.0;
-      D_y[i][0][k] = 0.0;
-      D_y[i][par.size_x - 1][k] = 0.0;
-    }
-    for (size_t j = 1; j < par.size_x - 1; ++j){
-      D_x[0][j][k] = 0.0;
-      D_x[par.size_y - 1][j][k] = 0.0;
-      D_y[0][j][k] = 0.0;
-      D_y[par.size_y - 1][j][k] = 0.0;
-    }
-  }
-
-  for (size_t i = 1; i < par.size_y - 1; ++i) {
-    for (size_t j = 1; j < par.size_x - 1; ++j) {
+  for (size_t i = y_begin_ind(); i < y_end_ind(); ++i) {
+    for (size_t j = x_begin_ind(); j < x_end_ind(); ++j) {
       for (size_t k = 0; k < 4; ++k) {
         mesh[i][j]->U[k] += D_x[i][j][k] - D_x[i][j-1][k] + D_y[i][j][k] - D_y[i-1][j][k];
       }
@@ -216,68 +201,95 @@ void mesh_and_methods_cartesian::calc_davis_artificial_viscosity() {
 //so don't forget they're pointers! more * motherfucker
 
 void mesh_and_methods_cartesian::boundary_conditions_default() {
-  for (size_t y = 1; y < par.size_y - 1; ++y) {
-    *mesh[y][0] = *mesh[y][1];
-    *mesh[y][par.size_x - 1] = *mesh[y][par.size_x - 2];
+
+  // d/dn = 0 for all bounds
+
+  for (size_t y = 1; y < y_begin_ind() + 1; ++y) {
+    for (size_t x = 0; x < mesh[0].size(); ++x) {
+      *mesh[y_begin_ind() - y][x] = *mesh[y_begin_ind()][x];
+      *mesh[y_end_ind() - 1 + y][x] = *mesh[y_end_ind() - 1][x];
+    }
   }
-  for (size_t x = 1; x < par.size_x - 1; ++x) {
-    *mesh[0][x] = *mesh[1][x];
-    *mesh[par.size_y - 1][x] = *mesh[par.size_y - 2][x];
+
+  for (size_t x = 1; x < x_begin_ind() + 1; ++x) {
+    for (size_t y = 0; y < mesh.size(); ++y) {
+      *mesh[y][x_begin_ind() - x] = *mesh[y][x_begin_ind()];
+      *mesh[y][x_end_ind() - 1 + x] = *mesh[y][x_end_ind() - 1];
+    }
   }
 }
 
 void mesh_and_methods_cartesian::boundary_conditions_for_bubble_near_wall() {
+
   // solid wall on the right:
-  for (size_t y = 1; y < par.size_y - 1; ++y) {
-    data_node_2d& node_to_change = *mesh[y][par.size_x - 1];
-    node_to_change = *mesh[y][par.size_x - 2];
-    node_to_change.u *= -1;
-    node_to_change.U[1] *= -1;
-    node_to_change.F[0] *= -1;
-    node_to_change.F[2] *= -1;
-    node_to_change.F[3] *= -1;
-    node_to_change.G[1] *= -1;
+  for (size_t x = 1; x < x_begin_ind() + 1; ++x) {
+    for (size_t y = 0; y < mesh.size(); ++y) {
+      data_node_2d& node_to_change = *mesh[y][x_end_ind() - 1 + x];
+      node_to_change = *mesh[y][x_end_ind() - x];
+      node_to_change.u *= -1;
+      node_to_change.U[1] *= -1;
+      node_to_change.F[0] *= -1;
+      node_to_change.F[2] *= -1;
+      node_to_change.F[3] *= -1;
+      node_to_change.G[1] *= -1;
+    }
   }
 
   // d/dn = 0 on other bounds:
-  for (size_t y = 1; y < par.size_y - 1; ++y) {
-    *mesh[y][0] = *mesh[y][1];
+  for (size_t y = 1; y < y_begin_ind() + 1; ++y) {
+    for (size_t x = 0; x < mesh[0].size(); ++x) {
+      *mesh[y_begin_ind() - y][x] = *mesh[y_begin_ind()][x];
+      *mesh[y_end_ind() - 1 + y][x] = *mesh[y_end_ind() - 1][x];
+    }
   }
-  for (size_t x = 1; x < par.size_x - 1; ++x) {
-    *mesh[0][x] = *mesh[1][x];
-    *mesh[par.size_y - 1][x] = *mesh[par.size_y - 2][x];
+
+  for (size_t x = 1; x < x_begin_ind() + 1; ++x) {
+    for (size_t y = 0; y < mesh.size(); ++y) {
+      *mesh[y][x_begin_ind() - x] = *mesh[y][x_begin_ind()];
+    }
   }
 }
 
 void mesh_and_methods_cartesian::
 boundary_conditions_for_bubble_near_wall_simmetry_on_bottom() {
   // solid wall on the right:
-  for (size_t y = 1; y < par.size_y - 1; ++y) {
-    data_node_2d& node_to_change = *mesh[y][par.size_x - 1];
-    node_to_change = *mesh[y][par.size_x - 2];
-    node_to_change.u *= -1;
-    node_to_change.U[1] *= -1;
-    node_to_change.F[0] *= -1;
-    node_to_change.F[2] *= -1;
-    node_to_change.F[3] *= -1;
-    node_to_change.G[1] *= -1;
+  for (size_t x = 1; x < x_begin_ind() + 1; ++x) {
+    for (size_t y = 0; y < mesh.size(); ++y) {
+      data_node_2d& node_to_change = *mesh[y][x_end_ind() - 1 + x];
+      node_to_change = *mesh[y][x_end_ind() - x];
+      node_to_change.u *= -1;
+      node_to_change.U[1] *= -1;
+      node_to_change.F[0] *= -1;
+      node_to_change.F[2] *= -1;
+      node_to_change.F[3] *= -1;
+      node_to_change.G[1] *= -1;
+    }
   }
 
-  // d/dn = 0 on left&right bounds and symmetry on bottom:
-  for (size_t y = 1; y < par.size_y - 1; ++y) {
-    *mesh[y][0] = *mesh[y][1];
+  // d/dn = 0 on left&top bounds
+  for (size_t y = 1; y < y_begin_ind() + 1; ++y) {
+    for (size_t x = 0; x < mesh[0].size(); ++x) {
+      *mesh[y_end_ind() - 1 + y][x] = *mesh[y_end_ind() - 1][x];
+    }
   }
-  for (size_t x = 1; x < par.size_x - 1; ++x) {
-    data_node_2d& node_to_change = *mesh[0][x];
-    node_to_change = *mesh[1][x];
-    node_to_change.v *= -1;
-    node_to_change.U[2] *= -1;
-    node_to_change.F[2] *= -1;
-    node_to_change.G[0] *= -1;
-    node_to_change.G[1] *= -1;
-    node_to_change.G[3] *= -1;
 
-    *mesh[par.size_y - 1][x] = *mesh[par.size_y - 2][x];
+  for (size_t x = 1; x < x_begin_ind() + 1; ++x) {
+    for (size_t y = 0; y < mesh.size(); ++y) {
+      *mesh[y][x_begin_ind() - x] = *mesh[y][x_begin_ind()];
+    }
+  }
 
+  //symmetry on bottom:
+  for (size_t y = 1; y < y_begin_ind() + 1; ++y) {
+    for (size_t x = 0; x < mesh[y].size(); ++x) {
+      data_node_2d& node_to_change = *mesh[y_begin_ind() - y][x];
+      node_to_change = *mesh[y_begin_ind() - 1 + y][x];
+      node_to_change.v *= -1;
+      node_to_change.U[2] *= -1;
+      node_to_change.F[2] *= -1;
+      node_to_change.G[0] *= -1;
+      node_to_change.G[1] *= -1;
+      node_to_change.G[3] *= -1;
+    }
   }
 }

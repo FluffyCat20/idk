@@ -10,13 +10,27 @@ using json = nlohmann::json;
 
 #include "data_nodes.hpp"
 
+struct MethodInfo {
+  MethodInfo() :
+  method_name(""), method_number(-1), ghost_edges_width(0) {};
+
+  MethodInfo(std::string m_name, int m_num, int gh_e_w) :
+    method_name(m_name), method_number(m_num), ghost_edges_width(gh_e_w) {};
+
+  std::string method_name;
+  int method_number;
+  int ghost_edges_width;
+};
+
 struct calculation_params {
 
-  int method_number = -1;
-  double x_left, x_right;
+  MethodInfo method_info;
+  double x_left, x_right; //bounds of calculating area as coordinates
   double y_bottom, y_top;
 
-  size_t size_x, size_y;
+  int x_begin, x_end, y_begin, y_end; //bounds of calculating area as nodes
+
+  size_t size_x, size_y; //size of calculating area
   double t_end;
   double time_step;
 
@@ -50,20 +64,19 @@ public:
   };
   /*using func_t = std::function<std::unique_ptr<base_data_2d>()>;
   std::map<std::string, func_t> coord_types;*/
-  std::string method_name = "";
   int coord_type_number = -1;
 
   calculation_info(
     std::ifstream& config_file_path, std::string& output_path);
 
 private:
-  std::map<std::string, int> methods_available = {
-    {"lax_friedrichs", 0},
-    {"mac_cormack", 1},
-    {"mac_cormack+davis", 2}
+  const std::vector<MethodInfo> methods_available = {
+    MethodInfo("lax_friedrichs", 0, 1), //name, method number, number of ghost nodes rows
+    MethodInfo("mac_cormack", 1, 1),
+    MethodInfo("mac_cormack+davis", 2, 2)
   };
 
-  std::map<std::string, int> coord_types_available = {
+  const std::map<std::string, int> coord_types_available = {
     {"cartesian", 0},
     {"axis_symm", 1}
   };

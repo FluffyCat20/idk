@@ -1,7 +1,7 @@
 #include "data_2d_writer.h"
 
 void data_2d_writer::output_first() {
-  grid_ascii_outfile << "TITLE = \"" << std::to_string(par.method_number) <<
+  grid_ascii_outfile << "TITLE = \"" << par.method_info.method_name <<
     "; size: " << par.size_x << "x" << par.size_y << "\""<< std::endl;
   grid_ascii_outfile << "VARIABLES = \"x\", \"y\", \"rho\", \"p\", \"u\", \"v\""
     << std::endl;
@@ -16,7 +16,7 @@ void data_2d_writer::output_for_current_time(double time) {
 
   for (size_t i = 0; i < par.size_x; ++i) {
     for (size_t j = 0; j < par.size_y; ++j) {
-      const data_node_2d& pt = *mesh[j][i];
+      const data_node_2d& pt = *mesh[j + par.y_begin][i + par.x_begin];
       grid_ascii_outfile << i*par.delta_x + par.x_left << " " <<
         j*par.delta_y + par.y_bottom << " " <<
         pt.rho << " " << pt.p << " " << pt.u << " " << pt.v << std::endl;
@@ -36,8 +36,8 @@ void data_2d_writer::output_in_wall_point_first(std::ofstream &outfile) {
 
 void data_2d_writer::output_in_wall_point_for_current_time(
     std::ofstream &outfile, double time) {
-  outfile << time << " " << mesh[1][par.size_x - 2]->rho <<
-              " " << mesh[1][par.size_x - 2]->p << std::endl;
+  outfile << time << " " << mesh[par.y_begin][par.y_end - 1]->rho <<
+              " " << mesh[par.y_begin][par.y_end - 1]->p << std::endl;
 }
 
 void data_2d_writer::output_on_symmetry_axis_first() {
@@ -52,7 +52,7 @@ void data_2d_writer::output_on_symmetry_axis_for_current_time(double time) {
     << ", F=POINT, SOLUTIONTIME = "
     << time << " t = " << "\"" << time << "\"" << std::endl;
   for (size_t x = 0; x < par.size_x; ++x) {
-    const data_node_2d& pt = *mesh[0][x];
+    const data_node_2d& pt = *mesh[par.y_begin][x + par.x_begin];
     symmetry_axis_outfile << x*par.delta_x + par.x_left << " "
             << pt.rho << " " << pt.p << std::endl;
   }
@@ -65,7 +65,7 @@ void data_2d_writer::output_pressure_sensors_on_wall(
 
   for (size_t i = 0; i < pressure_sensors_on_wall.size(); ++i) {
     std::ofstream fout(output_folder +
-      "pressure_on_wall_sensors_norm/pressure_sensor" + std::to_string(i) + ".dat");
+      "pressure_on_wall_sensors/pressure_sensor" + std::to_string(i) + ".dat");
     for (const auto& it : pressure_sensors_on_wall[i]) {
       fout << it.first << " " << it.second << std::endl;
     }

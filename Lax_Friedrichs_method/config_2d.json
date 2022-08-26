@@ -9,10 +9,10 @@
 
   "coord_type": "axis_symm",
 
-  "output_folder": "D:/gas_dyn/trash_can/",
+  "output_folder": "D:/gas_dyn/trash_can/folder/",
 
   "bubble_near_wall": {
-  	"on": false,
+  	"on": true,
   	
   	"x0": 0.0,
   	"y0": 0.0,
@@ -65,7 +65,7 @@
  	},
 
   "vertical_flow": {
-  	"on": true,
+  	"on": false,
   	"rho_up": 1.0,
     "rho_down": 0.125,
     "p_up": 1.0,
@@ -77,7 +77,7 @@
   },
 
   "shock_wave": {
-  	"on": true,
+  	"on": false,
   	"mach": 3.0
   },
 
@@ -86,13 +86,12 @@
   	"omega": 0.3
   },
   
-
   "gamma": 1.4,
 
-  "size_x": 195,
-  "size_y": 150,
+  "size_x": 780,
+  "size_y": 600,
 
-  "t_end": 0.5,
+  "t_end": 1.0,
   "time_step": 0.01,
-  "courant_number": 0.8
+  "courant_number": 0.4
 }

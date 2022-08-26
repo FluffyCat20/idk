@@ -7,8 +7,14 @@ calculation_info::calculation_info(
 
   par.delta_x = (par.x_right - par.x_left)/par.size_x;
   par.delta_y = (par.y_top - par.y_bottom)/par.size_y;
-  par.x0 = par.size_x / 2;
-  par.y0 = par.size_y / 2;
+
+  par.x_begin = par.method_info.ghost_edges_width;
+  par.y_begin = par.method_info.ghost_edges_width;
+  par.x_end = par.x_begin + par.size_x;
+  par.y_end = par.y_begin + par.size_y;
+  par.x0 = par.x_begin + par.size_x / 2;
+  par.y0 = par.y_begin + par.size_y / 2;
+
 }
 
 void calculation_info::get_init_data_map(
@@ -30,11 +36,13 @@ void calculation_info::get_data_from_config(
 
   output_folder = config_data["output_folder"];
 
-  method_name = config_data["method_name"];
-  auto method_it = methods_available.find(method_name);
-  if (method_it != methods_available.end()) {
-    par.method_number = method_it->second;
-  } else {
+  for (auto meth_it = methods_available.cbegin(); meth_it != methods_available.cend(); ++meth_it) {
+    if (config_data["method_name"] == meth_it->method_name) {
+      par.method_info = *meth_it;
+      break;
+    }
+  }
+  if (par.method_info.method_number < 0) {
     throw (std::invalid_argument("wrong config : unknown method name"));
   }
 
@@ -56,6 +64,7 @@ void calculation_info::get_data_from_config(
 
   par.size_x = config_data["size_x"];
   par.size_y = config_data["size_y"];
+
   par.t_end = config_data["t_end"];
   par.time_step = config_data["time_step"];
 

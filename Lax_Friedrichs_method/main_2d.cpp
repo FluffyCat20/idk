@@ -98,7 +98,7 @@ int main(int argc, char* argv[]) {
   double rho_peak = 0.0, p_peak = 0.0;
   double rho_peak_time = 0.0, p_peak_time = 0.0;
   auto grid_mesh = grid_ptr->get_mesh_const_ref();//HORRIBLE NAMING
-  const auto& corner_pt = grid_mesh[1][calc_info.par.size_x - 2];
+  const auto& corner_pt = grid_mesh[grid_ptr->y_begin_ind()][grid_ptr->y_end_ind() - 1];
 
   const double& delta_t_ref = grid_ptr->get_params_const_ref().delta_t;
 
@@ -149,7 +149,9 @@ int main(int argc, char* argv[]) {
   //reflected shock with no bubble
   double p3;
   stat.calc_pressure_after_reflected_shock_no_bubble(
-    grid_mesh[0][0]->rho, grid_mesh[0][0]->p, grid_mesh[0][0]->u, p3);
+    grid_mesh[grid_ptr->y_begin_ind()][grid_ptr->x_begin_ind()]->rho,
+    grid_mesh[grid_ptr->y_begin_ind()][grid_ptr->x_begin_ind()]->p,
+    grid_mesh[grid_ptr->y_begin_ind()][grid_ptr->x_begin_ind()]->u, p3);
   double t0 = (calc_info.par.x_right - calc_info.par.x_left -
     calc_info.par.gap_btw_sw_and_bound) / calc_info.par.D_of_initial_shock;
 
