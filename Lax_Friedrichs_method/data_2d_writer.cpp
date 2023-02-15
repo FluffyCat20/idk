@@ -36,8 +36,8 @@ void data_2d_writer::output_in_wall_point_first(std::ofstream &outfile) {
 
 void data_2d_writer::output_in_wall_point_for_current_time(
     std::ofstream &outfile, double time) {
-  outfile << time << " " << mesh[par.y_begin][par.y_end - 1]->rho <<
-              " " << mesh[par.y_begin][par.y_end - 1]->p << std::endl;
+  outfile << time << " " << mesh[par.y_begin][par.x_end - 1]->rho <<
+              " " << mesh[par.y_begin][par.x_end - 1]->p << std::endl;
 }
 
 void data_2d_writer::output_on_symmetry_axis_first() {

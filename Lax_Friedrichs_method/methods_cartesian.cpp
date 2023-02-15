@@ -194,6 +194,159 @@ void mesh_and_methods_cartesian::calc_davis_artificial_viscosity() {
 
 }
 
+void mesh_and_methods_cartesian::mac_cormack_with_zhmakin_fursenko(
+    std::shared_ptr<const mesh_and_common_methods> prev_grid_ptr) {
+
+  std::shared_ptr<mesh_and_common_methods> predictor_grid_ptr (
+    new mesh_and_methods_cartesian(prev_grid_ptr));
+  predictor_grid_ptr->mac_cormack_predictor_step(prev_grid_ptr);
+  mac_cormack_corrector_step(prev_grid_ptr, predictor_grid_ptr);
+  boundary_conditions();
+  smooth_2D_zhmakin_fursenko(0.2);
+  calc_values_and_fluxes();
+  boundary_conditions();
+  return;
+}
+
+void mesh_and_methods_cartesian::smooth_2D_zhmakin_fursenko(const double smooth_intensity) {
+
+  //smooth rows
+  for (size_t i = y_begin_ind(); i < y_end_ind(); ++i) {
+    Smooth_Array_Zhmakin_Fursenko(mesh[i], smooth_intensity); //by OG
+  }
+
+  //smooth columns
+  for (size_t j = x_begin_ind(); j < x_end_ind(); ++j) {
+    std::vector<data_node_2d*> column(mesh.size());
+    for (size_t i = 0; i < mesh.size(); ++i) {
+      column[i] = mesh[i][j]; //ptr is copied, so nodes from mesh are changed in zhmakin_fursenko
+    }
+    Smooth_Array_Zhmakin_Fursenko(column, smooth_intensity); //by OG
+  }
+}
+
+void mesh_and_methods_cartesian::smooth_1D_zhmakin_fursenko(
+    std::vector<data_node_2d*>& vec_to_smooth, const double smooth_intensity) {
+
+  const int equations_amount = vec_to_smooth[0]->U.size();
+
+  for (size_t eq_num = 0; eq_num < equations_amount; ++eq_num) {
+
+    //fluxes:
+    std::vector<double> fluxes(vec_to_smooth.size());
+    for (size_t i = 0; i < vec_to_smooth.size() - 1; i++) {
+      fluxes[i] = smooth_intensity *
+        (vec_to_smooth[i + 1]->U[eq_num] - vec_to_smooth[i]->U[eq_num]);
+    }
+
+    //diffusion operator (D):
+    //diffused = (1+D) applied on vec_to_smooth, D is the difference of fluxes):
+    std::vector<double> diffused(vec_to_smooth.size());
+    for (size_t i = 1; i < vec_to_smooth.size() - 1; i++) {
+      diffused[i] = vec_to_smooth[i]->U[eq_num] +
+                    (fluxes[i] - fluxes[i - 1]);
+    }
+
+    //difference of diffused:
+    std::vector<double> delta_dif(vec_to_smooth.size());
+    for (size_t i = 1; i < vec_to_smooth.size() - 2; i++) {
+      delta_dif[i] = diffused[i + 1] - diffused[i];
+    }
+
+    //flux limiter:
+    std::vector<double> fluxes_limited(vec_to_smooth.size());
+    for (size_t i = 2; i < vec_to_smooth.size() - 3; i++) {
+      int s = fluxes[i] > 0 ? 1 : -1; //sign of the flux
+      fluxes_limited[i] = std::min(
+        {s * delta_dif[i - 1], std::abs(fluxes[i]), s * delta_dif[i + 1]});
+      fluxes_limited[i] = s * std::max(0.0, fluxes_limited[i]);
+    }
+
+    //anti-diffusion operator (A):
+    //anti_diffused = (1+A) applied on diffused:
+    std::vector<double> anti_diffused(vec_to_smooth.size());
+    for (size_t i = 3; i < vec_to_smooth.size() - 3; i++) {
+      anti_diffused[i] = diffused[i] - fluxes_limited[i] + fluxes_limited[i - 1];
+    }
+
+    //writing result:
+    for (size_t i = 3; i < vec_to_smooth.size() - 3; i++) {
+      vec_to_smooth[i]->U[eq_num] = anti_diffused[i];
+    }
+  }
+}
+
+void mesh_and_methods_cartesian::Smooth_Array_Zhmakin_Fursenko(
+  std::vector<data_node_2d*>& vec_to_smooth, const double smooth_intensity)
+{
+  const int equations_amount = vec_to_smooth[0]->U.size();
+  int Nmax = vec_to_smooth.size();
+
+  for (size_t eq_num = 0; eq_num < equations_amount; ++eq_num) {
+
+    double* Fs = new double[Nmax];
+    for (size_t i = 0; i < Nmax; ++i) {
+      Fs[i] = vec_to_smooth[i]->U[eq_num];
+    }
+    double* Fi = new double[Nmax];
+    double* Ftd = new double[Nmax];
+
+    int n;
+    double sign, f1, f2; // double_smooth_intensity читать из файла
+    for (n = 0; n <= Nmax - 1; n++)
+      Fi[n] = smooth_intensity*(Fs[n + 1] - Fs[n]);
+    for (n = 1; n <= Nmax - 1; n++)
+      Ftd[n] = Fs[n] + (Fi[n] - Fi[n - 1]);
+    Ftd[0] = Fs[0];
+    Ftd[Nmax] = Fs[Nmax];
+    for (n = 0; n <= Nmax - 1; n++)
+      Fs[n] = Ftd[n + 1] - Ftd[n];
+    for (n = 0; n <= Nmax - 1; n++)
+    {
+      Fi[n] = smooth_intensity*(Ftd[n + 1] - Ftd[n]);
+      sign = -1;
+      if (Fi[n] >= 0)
+        sign = 1;
+      Fi[n] = fabs(Fi[n]);
+      if (n == 0)
+      {
+        f2 = sign*Fs[1];
+        if (f2<Fi[0])
+          Fi[0] = f2;
+      }
+      else if (n == Nmax - 1)
+      {
+        f1 = sign*Fs[Nmax - 2];
+        if (f1<Fi[Nmax - 1])
+          Fi[Nmax - 1] = f1;
+      }
+      else
+      {
+        f1 = sign*Fs[n - 1];
+        f2 = sign*Fs[n + 1];
+        if (f1<Fi[n])
+          Fi[n] = f1;
+        if (f2<Fi[n])
+          Fi[n] = f2;
+      }
+      if (Fi[n]<0)
+        Fi[n] = 0;
+      else
+        Fi[n] = sign*Fi[n];
+    }
+    for (n = 1; n <= Nmax - 1; n++)
+      Fs[n] = Ftd[n] - (Fi[n] - Fi[n - 1]);
+    Fs[0] = Ftd[0];
+
+    for (size_t i = 0; i < Nmax; ++i) {
+      vec_to_smooth[i]->U[eq_num] = Fs[i];
+    }
+
+    delete[] Fs;
+    delete[] Fi;
+    delete[] Ftd;
+  }
+}
 
 ///////////////////////BOUNDARY CONDITIONS://///////////////////////////
 

@@ -47,6 +47,8 @@ struct calculation_params {
 
   bool stop_now = false;
 
+  std::vector<double> times;
+
 };
 
 class calculation_info {
@@ -60,7 +62,8 @@ public:
     {"shock_wave", false},
     {"horizontal_left_contact_disc", false},
     {"quadrants", false},
-    {"bubble_near_wall", false}
+    {"bubble_near_wall", false},
+    {"add_quad_with_specific_parameters", false}
   };
   /*using func_t = std::function<std::unique_ptr<base_data_2d>()>;
   std::map<std::string, func_t> coord_types;*/
@@ -73,7 +76,8 @@ private:
   const std::vector<MethodInfo> methods_available = {
     MethodInfo("lax_friedrichs", 0, 1), //name, method number, number of ghost nodes rows
     MethodInfo("mac_cormack", 1, 1),
-    MethodInfo("mac_cormack+davis", 2, 2)
+    MethodInfo("mac_cormack+davis", 2, 2),
+    MethodInfo("mac_cormack+zhmakin_fursenko", 3, 1)
   };
 
   const std::map<std::string, int> coord_types_available = {

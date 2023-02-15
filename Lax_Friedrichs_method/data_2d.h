@@ -102,6 +102,10 @@ public:
   virtual void mac_cormack_with_davis(
     std::shared_ptr<const mesh_and_common_methods> prev_grid_ptr) = 0;
   virtual void calc_davis_artificial_viscosity() = 0;
+  virtual void mac_cormack_with_zhmakin_fursenko(
+    std::shared_ptr<const mesh_and_common_methods> prev_grid_ptr) = 0;
+  virtual void smooth_2D_zhmakin_fursenko(const double smooth_intensity) = 0;
+
 
   virtual void boundary_conditions_for_bubble_near_wall() = 0;
   virtual void boundary_conditions_for_bubble_near_wall_simmetry_on_bottom() = 0;
@@ -281,8 +285,8 @@ public:
       size_t a = init_data["a"] * nodes_in_1_x;
       double b_div_by_a = init_data["b_div_by_a"];
       size_t b = static_cast<size_t>(a * b_div_by_a);
-      for (size_t y = par.y_begin; y < par.y_end; ++y) {
-        int y_diff = y - par.y0;
+      for (int y = par.y_begin; y < par.y_end; ++y) {
+        int y_diff = y - int(par.y0);
         size_t left_bubble_edge = par.x0;
         size_t right_bubble_edge = par.x0;
         if (std::abs(y_diff) <= b) {
@@ -290,6 +294,9 @@ public:
             std::sqrt(a*a - y_diff*y_diff/b_div_by_a/b_div_by_a));
           left_bubble_edge -= bubble_x;
           right_bubble_edge += bubble_x;
+        }
+        if (right_bubble_edge >= par.x_end) {
+          right_bubble_edge = par.x_end - 1;
         }
         for (size_t x = par.x_begin; x < shock_wave_initial_x; ++x) {
           mesh[y][x] = new data_node_cartesian(
@@ -332,7 +339,7 @@ public:
 
     auto other_mesh = other_grid->get_mesh_const_ref();
     mesh.resize(other_mesh.size());
-    for (size_t y =0; y < mesh.size(); ++y) {
+    for (size_t y = 0; y < mesh.size(); ++y) {
       mesh[y].resize(other_mesh[y].size());
       for (size_t x = 0; x < mesh[y].size(); ++x) {
         mesh[y][x] = new data_node_cartesian(other_mesh[y][x]);
@@ -355,6 +362,14 @@ public:
   virtual void mac_cormack_with_davis(
     std::shared_ptr<const mesh_and_common_methods> prev_grid_ptr) override;
   virtual void calc_davis_artificial_viscosity() override;
+  virtual void mac_cormack_with_zhmakin_fursenko(
+    std::shared_ptr<const mesh_and_common_methods> prev_grid_ptr) override;
+  virtual void smooth_2D_zhmakin_fursenko(const double smooth_intensity) override;
+
+  void smooth_1D_zhmakin_fursenko(std::vector<data_node_2d*>& vec_to_smooth,
+                                  const double smooth_intensity);
+  void Smooth_Array_Zhmakin_Fursenko( //by OG and PYU
+    std::vector<data_node_2d*>& vec_to_smooth, const double smooth_intensity);
 
   virtual void boundary_conditions_for_bubble_near_wall() override;
   virtual void boundary_conditions_for_bubble_near_wall_simmetry_on_bottom() override;
@@ -395,6 +410,51 @@ public:
 
 
     //initial conditions from config:
+
+    if (init_config["horizontal_flow"]) {
+
+      if (init_config["shock_wave"]) {
+        shock_wave_initialization(
+          init_data["rho_right"], init_data["p_right"], init_data["u_right"],
+          init_data["rho_left"], init_data["p_left"], init_data["u_left"],
+          init_data["mach"]);
+      }
+
+      size_t i_start = par.y_begin;
+
+      if (init_config["horizontal_left_contact_disc"]) {
+        i_start = par.y0;
+        for (size_t i = par.y_begin; i < i_start; ++i) {
+          for (size_t j = par.x_begin; j < par.x0; ++j) {
+            mesh[i][j] = new data_node_axisymm(
+                init_data["rho_left"]*init_data["omega"],
+                init_data["p_left"], init_data["u_left"],
+                init_data["v_left"], (i - par.y_begin) * par.delta_y);
+          }
+          for (size_t j = par.x0; j < par.x_end; ++j) {
+            mesh[i][j] = new data_node_axisymm(
+                init_data["rho_right"],
+                init_data["p_right"], init_data["u_right"],
+                init_data["v_right"], (i - par.y_begin) * par.delta_y);
+          }
+        }
+      }
+
+      for (size_t i = i_start; i < par.y_end; ++i) {
+        for (size_t j = par.x_begin; j < par.x0; ++j) {
+          mesh[i][j] = new data_node_axisymm(
+              init_data["rho_left"],
+              init_data["p_left"], init_data["u_left"],
+              init_data["v_left"], (i - par.y_begin) * par.delta_y);
+        }
+        for (size_t j = par.x0; j < par.x_end; ++j) {
+          mesh[i][j] = new data_node_axisymm(
+              init_data["rho_right"],
+              init_data["p_right"], init_data["u_right"],
+              init_data["v_right"], (i - par.y_begin) * par.delta_y);
+        }
+      }
+    }
 
     if (init_config["vertical_flow"]) {
       if (init_config["shock_wave"]) {
@@ -460,6 +520,9 @@ public:
           left_bubble_edge -= bubble_x;
           right_bubble_edge += bubble_x;
         }
+        if (right_bubble_edge >= par.x_end) {
+          right_bubble_edge = par.x_end - 1;
+        }
         int y_for_r = y - par.y_begin;
         for (size_t x = par.x_begin; x < shock_wave_initial_x; ++x) {
           mesh[y][x] = new data_node_axisymm(
@@ -490,6 +553,33 @@ public:
         }
       }
     }
+
+
+    if (init_config["add_quad_with_specific_parameters"]) {
+      int quad_left_edge_node =
+          par.x_begin + (init_data["quad_x0"] - par.x_left) / par.delta_x;
+      quad_left_edge_node = std::max(quad_left_edge_node, par.x_begin);
+      int quad_right_edge_node =
+          quad_left_edge_node + init_data["quad_width"] / par.delta_x;
+      quad_right_edge_node = std::min(quad_right_edge_node, par.x_end - 1);
+      int quad_bottom_edge_node =
+          par.y_begin + (init_data["quad_y0"] - par.y_bottom) / par.delta_y;
+      quad_bottom_edge_node = std::max(quad_bottom_edge_node, par.y_begin);
+      int quad_top_edge_node =
+          quad_bottom_edge_node + init_data["quad_height"] / par.delta_y;
+      quad_top_edge_node = std::min(quad_top_edge_node, par.y_end - 1);
+
+      for (int i = quad_bottom_edge_node; i < quad_top_edge_node + 1; ++i) {
+        int i_for_r = i - par.y_begin;
+        for (int j = quad_left_edge_node; j < quad_right_edge_node + 1; ++j) {
+          mesh[i][j] = new data_node_axisymm(
+            init_data["quad_rho"], init_data["quad_p"],
+            init_data["quad_u"], init_data["quad_v"], i_for_r * par.delta_y);
+        }
+      }
+
+     }
+
 
   }
 
@@ -526,6 +616,18 @@ public:
   virtual void mac_cormack_with_davis(
       std::shared_ptr<const mesh_and_common_methods> prev_grid) override;
   virtual void calc_davis_artificial_viscosity() override;
+  virtual void mac_cormack_with_zhmakin_fursenko(
+    std::shared_ptr<const mesh_and_common_methods> prev_grid_ptr) override;
+  virtual void smooth_2D_zhmakin_fursenko(const double smooth_intensity) override;
+
+
+  void smooth_1D_zhmakin_fursenko(std::vector<data_node_2d*>& vec_to_smooth,
+                                  const double smooth_intensity);
+
+  void Smooth_Array_Zhmakin_Fursenko(//by OG and PYU
+    std::vector<data_node_2d*>& vec_to_smooth, const double smooth_intensity);
+
+  void fix_small_p_rho();
 
   virtual void boundary_conditions_for_bubble_near_wall() override {};
   virtual void boundary_conditions_for_bubble_near_wall_simmetry_on_bottom() override;
@@ -563,9 +665,8 @@ public:
   /// u1 = u3 = 0 - boundary condition on the wall
 
   std::vector<double> calc_pressure_impulses_basic(
-    double t0, double p0) const;
+    double p0) const;
   /// excess pressure sum comparing to the pressure behind reflected shock
-  /// t0 - time of coming of the initial shock on the wall (with no bubble)
   /// p0 - pressure behind reflected shock (with no bubble)
 
 
@@ -578,7 +679,7 @@ public:
   calc_pressure_impulses_max_peak_bounded_by_local_min() const;
   ///area of highest peak bounded on the left&right by local minima
 
-  void impulses_output (double t0, double p0,
+  void impulses_output (double p0,
     const std::string& output_folder);
 
 private:

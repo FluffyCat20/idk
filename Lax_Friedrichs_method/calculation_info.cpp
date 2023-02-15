@@ -75,4 +75,15 @@ void calculation_info::get_data_from_config(
   par.gamma = config_data["gamma"];
   data_node_2d::gamma = par.gamma;
 
+  nlohmann::json times_as_json = config_data["times_when_to_write_data"];
+  par.times.reserve(times_as_json.size());
+  for (auto it = times_as_json.begin(); it != times_as_json.end(); ++it) {
+    par.times.push_back(*it);
+  }
+  if (par.times.empty()) {
+    for (int i = 0; i * par.time_step < par.t_end; ++i) {
+      par.times.push_back(i * par.time_step);
+    }
+  }
+
 }

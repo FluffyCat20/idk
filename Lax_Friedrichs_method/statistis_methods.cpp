@@ -59,7 +59,7 @@ void statistics_manager::calc_pressure_after_reflected_shock_no_bubble(
 }
 
 std::vector<double> statistics_manager::calc_pressure_impulses_basic(
-    double t0, double p0) const {
+  double p0) const {
 
   double eps = 1e-6;
 
@@ -69,18 +69,10 @@ std::vector<double> statistics_manager::calc_pressure_impulses_basic(
   for (size_t i = 0; i < pressure_sensors_on_wall.size(); ++i) {
     const auto& sensor = pressure_sensors_on_wall[i];
     double initial_p = sensor.front().second;
-    std::list<std::pair<double, double>>::const_iterator it0 =
-      sensor.cbegin();
     std::list<std::pair<double, double>>::const_iterator it1 =
       sensor.cbegin();
-    for (; it0 != sensor.cend() && it0->first < t0; ++it0) {}
     for (; it1 != sensor.cend() && std::abs(it1->second - initial_p) < eps; ++it1) {}
-    double t1 = t0;
-    if (it1 != sensor.cend()) {
-      t1 = it1->first;
-    }
-    for (auto it = t0 < t1 ? it0 : it1; it != sensor.cend(); ++it) {
-      //it must not be == sensor.cbegin()
+    for (auto it = it1; it != sensor.cend(); ++it) {
       impulses[i] += (it->second - p0) * (it->first - std::prev(it)->first);
     }
   }
@@ -160,9 +152,9 @@ calc_pressure_impulses_max_peak_bounded_by_local_min() const {
 
 
 void statistics_manager::impulses_output(
-    double t0, double p0, const std::string& output_folder) {
+    double p0, const std::string& output_folder) {
   std::vector<double> basic_impulses =
-    calc_pressure_impulses_basic(t0, p0);
+    calc_pressure_impulses_basic(p0);
   std::ofstream basic_impulses_file(output_folder
     + "basic_impulses.dat");
   for (size_t i = 0; i < basic_impulses.size(); ++i) {

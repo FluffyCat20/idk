@@ -17,6 +17,10 @@ void mesh_and_common_methods::do_step(
     mac_cormack_with_davis(prev_grid_ptr);
     break;
   }
+  case 3: {
+    mac_cormack_with_zhmakin_fursenko(prev_grid_ptr);
+    break;
+  }
   default: {
     std::cout << "????" << std::endl;
     break;
@@ -67,5 +71,3 @@ void mesh_and_common_methods::boundary_conditions() {
   //boundary_conditions_default();
   //}
 }
-
-

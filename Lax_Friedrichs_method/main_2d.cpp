@@ -34,6 +34,8 @@ int main(int argc, char* argv[]) {
   }
   }
 
+  grid_ptr->boundary_conditions();
+
   statistics_manager stat(grid_ptr);
 
   data_2d_writer grid_writer(grid_ptr->get_mesh_const_ref(),
@@ -88,17 +90,13 @@ int main(int argc, char* argv[]) {
   }
   int counter = 0;
   double current_t = 0.0;  
-  std::vector<double> times;
-  for (int i = 0; i*calc_info.par.time_step < calc_info.par.t_end; ++i) {
-    times.push_back(i*calc_info.par.time_step);
-  }
-  double current_time_idx = 0;
+  int current_time_idx = -1;
 
   //peaks
   double rho_peak = 0.0, p_peak = 0.0;
   double rho_peak_time = 0.0, p_peak_time = 0.0;
   auto grid_mesh = grid_ptr->get_mesh_const_ref();//HORRIBLE NAMING
-  const auto& corner_pt = grid_mesh[grid_ptr->y_begin_ind()][grid_ptr->y_end_ind() - 1];
+  const auto& corner_pt = grid_mesh[grid_ptr->y_begin_ind()][grid_ptr->x_end_ind() - 1];
 
   const double& delta_t_ref = grid_ptr->get_params_const_ref().delta_t;
 
@@ -127,8 +125,8 @@ int main(int argc, char* argv[]) {
 
     grid_writer.output_on_symmetry_axis_for_current_time(current_t);
 
-    if (current_time_idx + 1 < times.size() &&
-        times[current_time_idx + 1] <= current_t) {
+    if (current_time_idx + 1 < calc_info.par.times.size() &&
+        calc_info.par.times[current_time_idx + 1] <= current_t) {
       grid_writer.output_for_current_time(current_t);
       ++current_time_idx;
     }
@@ -147,18 +145,21 @@ int main(int argc, char* argv[]) {
 
 
   //reflected shock with no bubble
-  double p3;
+  /*double p3;
   stat.calc_pressure_after_reflected_shock_no_bubble(
     grid_mesh[grid_ptr->y_begin_ind()][grid_ptr->x_begin_ind()]->rho,
     grid_mesh[grid_ptr->y_begin_ind()][grid_ptr->x_begin_ind()]->p,
     grid_mesh[grid_ptr->y_begin_ind()][grid_ptr->x_begin_ind()]->u, p3);
   double t0 = (calc_info.par.x_right - calc_info.par.x_left -
-    calc_info.par.gap_btw_sw_and_bound) / calc_info.par.D_of_initial_shock;
+    calc_info.par.gap_btw_sw_and_bound) / calc_info.par.D_of_initial_shock;*/
 
   //sensors & impulses
   grid_writer.output_pressure_sensors_on_wall(output_folder,
     stat.get_pressure_sensors_on_wall());
-  stat.impulses_output(t0, p3, output_folder);
+  double p3 = 51.666; //p0 for Mach number = 3 (pressure after shock reflected from wall) !!!
+  stat.impulses_output(p3, output_folder);
+
+  std::cout << p3 << std::endl;
 
   //peaks:
 
