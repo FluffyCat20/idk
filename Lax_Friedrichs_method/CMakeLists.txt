@@ -10,4 +10,3 @@ add_library(bin_by_OG IO_Functions.h IO_Functions.cpp)
 
 target_link_libraries(1dimension PRIVATE nlohmann_json::nlohmann_json #[[bin_by_OG]])
 target_link_libraries(2dimensions PRIVATE nlohmann_json::nlohmann_json #[[bin_by_OG]])
-

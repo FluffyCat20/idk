@@ -5,7 +5,7 @@
 int main(){
 
   std::ifstream input("D:/gas_dyn/idk/Lax_Friedrichs_method/config.json");
-  data grid(input);
+  Data grid(input);
   input.close();
   grid.delta_t = grid.calc_delta_t();
 
@@ -26,7 +26,7 @@ int main(){
 
   std::cout << std::scientific;
 
-  data new_grid(grid);
+  Data new_grid(grid);
   double current_t = 0.0;
   int counter = 0;
   while (current_t < new_grid.t_end){

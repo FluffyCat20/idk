@@ -39,7 +39,7 @@ void mesh_and_common_methods::shock_wave_initialization (
   u1 = mach*a1;
   p = p1*(2*par.gamma/(par.gamma+1)*mach*mach
           - (par.gamma-1)/(par.gamma+1));
-  rho = 1/(rho1*((par.gamma-1)/(par.gamma+1))
+  rho = rho1/(((par.gamma-1)/(par.gamma+1))
            + 2/(par.gamma+1)/mach/mach);
   u = u1*rho1/rho;
 
@@ -66,7 +66,8 @@ void mesh_and_common_methods::boundary_conditions() {
 
   //if (init_config["bubble_near_wall"]) {
     //boundary_conditions_for_bubble_near_wall();
-  boundary_conditions_for_bubble_near_wall_simmetry_on_bottom();
+  //boundary_conditions_for_bubble_near_wall_simmetry_on_bottom();
+  boundary_conditions_default();
   //} else {
   //boundary_conditions_default();
   //}

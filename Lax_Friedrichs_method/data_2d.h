@@ -483,6 +483,55 @@ public:
       }
     }
 
+    if (init_config["quadrants"]) {
+
+      for (size_t i = par.y_begin; i < par.y0; ++i) {
+        int i_for_r = i - par.y_begin;
+        for (size_t j = par.x_begin; j < par.x0; ++j) {
+          mesh[i][j] = new data_node_axisymm(
+              init_data["rho_down_left"],
+              init_data["p_down_left"], init_data["u_down_left"],
+              init_data["v_down_left"],
+              i_for_r * par.delta_y);
+        }
+      }
+
+      for (size_t i = par.y_begin; i < par.y0; ++i) {
+        for (size_t j = par.x0; j < par.x_end; ++j) {
+          int i_for_r = i - par.y_begin;
+          mesh[i][j] = new data_node_axisymm(
+              init_data["rho_down_right"],
+              init_data["p_down_right"], init_data["u_down_right"],
+              init_data["v_down_right"],
+              i_for_r * par.delta_y);
+        }
+      }
+
+      for (size_t i = par.y0; i < par.y_end; ++i) {
+        for (size_t j = par.x_begin; j < par.x0; ++j) {
+          int i_for_r = i - par.y_begin;
+          mesh[i][j] = new data_node_axisymm(
+              init_data["rho_up_left"],
+              init_data["p_up_left"], init_data["u_up_left"],
+              init_data["v_up_left"],
+              i_for_r * par.delta_y);
+        }
+      }
+
+      for (size_t i = par.y0; i < par.y_end; ++i) {
+        for (size_t j = par.x0; j < par.x_end; ++j) {
+          int i_for_r = i - par.y_begin;
+          mesh[i][j] = new data_node_axisymm(
+              init_data["rho_up_right"],
+              init_data["p_up_right"], init_data["u_up_right"],
+              init_data["v_up_right"],
+              i_for_r * par.delta_y);
+        }
+      }
+    }
+
+
+
     if (init_config["bubble_near_wall"]) {
       double nodes_in_1_x_double = static_cast<double> (par.size_x) / (par.x_right - par.x_left);
       double nodes_in_1_y_double = static_cast<double> (par.size_y) / (par.y_top - par.y_bottom);

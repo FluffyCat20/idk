@@ -373,14 +373,21 @@ void mesh_and_methods_axisymm::fix_small_p_rho() {
 
 void mesh_and_methods_axisymm::boundary_conditions_default() {
 
-  // d/dn = 0 for all bounds
+  // d/dn = 0 on top bound (r changes):
   for (size_t y = 1; y < y_begin_ind() + 1; ++y) {
     for (size_t x = 0; x < mesh[0].size(); ++x) {
-      *mesh[y_begin_ind() - y][x] = *mesh[y_begin_ind()][x];
-      *mesh[y_end_ind() - 1 + y][x] = *mesh[y_end_ind() - 1][x];
+      data_node_2d& node_to_change = *mesh[y_end_ind() - 1 + y][x];
+      double temp_r = node_to_change.r;
+      node_to_change = *mesh[y_end_ind() - 1][x];
+      node_to_change.r = temp_r;
+      //node_to_change.v *= -1;
+      node_to_change.calc_U_when_values_known();
+      node_to_change.calc_F_when_values_known();
+      node_to_change.calc_G_when_values_known();
     }
   }
 
+  // d/dn = 0 on left and right bounds (r doesn't change):
   for (size_t x = 1; x < x_begin_ind() + 1; ++x) {
     for (size_t y = 0; y < mesh.size(); ++y) {
       *mesh[y][x_begin_ind() - x] = *mesh[y][x_begin_ind()];
@@ -388,17 +395,28 @@ void mesh_and_methods_axisymm::boundary_conditions_default() {
     }
   }
 
-  //v=0 on bottom:
-  for (size_t y = y_begin_ind() - 1; y < y_begin_ind() + 1; ++y) {
-    for (size_t x = 0; x < mesh[0].size(); ++x) {
-      data_node_2d& node_to_change = *mesh[y][x];
-      node_to_change.v = 0.0;
-      node_to_change.U[2] = 0.0;
-      node_to_change.F[2] = 0.0;
-      node_to_change.G[0] = 0.0;
-      node_to_change.G[1] = 0.0;
-      node_to_change.G[2] = node_to_change.p * node_to_change.r;
-      node_to_change.G[3] = 0.0;
+  // d/dn = 0 & v=0 on symmetry axis:
+  for (size_t x = 0; x < mesh[0].size(); ++x) {
+    data_node_2d& node_to_change = *mesh[y_begin_ind()][x];
+    node_to_change = *mesh[y_begin_ind() + 1][x];
+    node_to_change.v = 0.0;
+    for (size_t i = 0; i < 4; ++i) {
+      node_to_change.U[i] = 0.0;
+      node_to_change.F[i] = 0.0;
+      node_to_change.G[i] = 0.0;
+    }
+  }
+
+  // ghost edges on bottom:
+  for (size_t row_number = 1; row_number < y_begin_ind() + 1; ++row_number) {
+    for (size_t x = 0; x < mesh[row_number].size(); ++x) {
+      data_node_2d& node_to_change = *mesh[y_begin_ind() - row_number][x];
+      node_to_change = *mesh[y_begin_ind() + row_number][x];
+      for (size_t i = 0; i < 4; ++i) {
+        node_to_change.U[i] *= -1.0;
+        node_to_change.F[i] *= -1.0;
+        node_to_change.G[i] *= -1.0;
+      }
     }
   }
 }

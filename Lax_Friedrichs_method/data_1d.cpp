@@ -18,7 +18,7 @@ int data_node::calc_F_in_node(){
   return 0;
 }
 
-void data::get_data_from_config(std::ifstream& input){
+void Data::get_data_from_config(std::ifstream& input){
 
   json config_data;
   input >> config_data;
@@ -43,7 +43,7 @@ void data::get_data_from_config(std::ifstream& input){
   t_end = config_data["t_end"];
 }
 
-double data::calc_delta_t(){
+double Data::calc_delta_t(){
   //mb abs(u +- a) instead abs(u) +- a ???
   double max_u_abs_plus_a = std::numeric_limits<double>::min();
   for (size_t i = 0; i < size; ++i){
@@ -53,7 +53,7 @@ double data::calc_delta_t(){
   return delta_x/max_u_abs_plus_a*courant_number;
 }
 
-void data::calc_new_U_with_lax_friedrichs(const data& prev_grid){
+void Data::calc_new_U_with_lax_friedrichs(const Data& prev_grid){
   for (size_t k = 1; k < size - 1; ++k){
     for (size_t i = 0; i < 3; ++i){
       mesh[k].U[i] = 0.5*(prev_grid.mesh[k-1].U[i] + prev_grid.mesh[k+1].U[i]) //delta_t from this* must be calculated before!!
@@ -79,7 +79,7 @@ inline double phi(double r){ //flux limiter
   return 0.0;
 }
 
-void data::calc_D(){
+void Data::calc_D(){
   std::vector<double> delta_U_prev(3), delta_U_cur(3), delta_U_next(3);
   for (size_t i = 0; i < 3; ++i){
     delta_U_prev[i] = mesh[1].U[i] - mesh[0].U[i];
@@ -119,7 +119,7 @@ void data::calc_D(){
   }
 }
 
-void data::mac_cormack_predictor_step(const data& prev_grid){
+void Data::mac_cormack_predictor_step(const Data& prev_grid){
   for (size_t k = 1; k < size - 1; ++k){
     for (size_t i = 0; i < 3; ++i){
       mesh[k].U[i] = prev_grid.mesh[k].U[i] - delta_t/delta_x*(prev_grid.mesh[k+1].F[i] - prev_grid.mesh[k].F[i]);
@@ -128,7 +128,7 @@ void data::mac_cormack_predictor_step(const data& prev_grid){
   calc_F_in_nodes();
 }
 
-void data::mac_cormack_corrector_step(const data& prev_grid, const data& predictor_grid){
+void Data::mac_cormack_corrector_step(const Data& prev_grid, const Data& predictor_grid){
   for (size_t k = 1; k < size - 1; ++k){
     for (size_t i = 0; i < 3; ++i){
       mesh[k].U[i] = 0.5*(prev_grid.mesh[k].U[i] + predictor_grid.mesh[k].U[i])
@@ -140,14 +140,14 @@ void data::mac_cormack_corrector_step(const data& prev_grid, const data& predict
 
 }
 
-void data::calc_new_U_with_mac_cormack(data& prev_grid){
-  data predictor_grid(*this);
+void Data::calc_new_U_with_mac_cormack(Data& prev_grid){
+  Data predictor_grid(*this);
   predictor_grid.mac_cormack_predictor_step(*this);
   mac_cormack_corrector_step(prev_grid, predictor_grid);
 }
 
-void data::calc_new_U_with_mac_cormack_davis(data& prev_grid){
-  data predictor_grid(*this);
+void Data::calc_new_U_with_mac_cormack_davis(Data& prev_grid){
+  Data predictor_grid(*this);
   predictor_grid.mac_cormack_predictor_step(*this);
   mac_cormack_corrector_step(prev_grid, predictor_grid);
 
@@ -162,7 +162,7 @@ void data::calc_new_U_with_mac_cormack_davis(data& prev_grid){
   //Smooth_Davis_Maksimov(*this, prev_grid);
 }
 
-void data::calc_new_U_and_F_with_godunov(data& prev_grid, double current_t) {
+void Data::calc_new_U_and_F_with_godunov(Data& prev_grid, double current_t) {
 
   double d_max = 0.0;
 
@@ -199,7 +199,7 @@ void data::calc_new_U_and_F_with_godunov(data& prev_grid, double current_t) {
 }
 
 
-void data::calc_F_in_nodes() {
+void Data::calc_F_in_nodes() {
   for (size_t k = 1; k < size - 1; ++k){
     if (mesh[k].calc_F_in_node() == -1){
       stop_now = true;
@@ -214,7 +214,7 @@ void data::calc_F_in_nodes() {
 
 }
 
-void data::calc_F_btw_nodes(double& max_velocity_abs) {
+void Data::calc_F_btw_nodes(double& max_velocity_abs) {
 
   max_velocity_abs = 0.0;
 
@@ -237,7 +237,7 @@ void data::calc_F_btw_nodes(double& max_velocity_abs) {
   }
 }
 
-data& data::operator=(const data& other){ //only changes field and delta_t
+Data& Data::operator=(const Data& other){ //only changes field and delta_t
   for (size_t i = 0; i < size; ++i)
     mesh[i] = other.mesh[i];
   delta_t = other.delta_t;
@@ -251,7 +251,7 @@ double phi2(double x) //взято у Максимова
   return std::max(0.0, std::min(2 * std::abs(x), 1.0));
 }
 
-int Smooth_Davis_Maksimov(data& new_grid, const data& prev_grid) //алгоритм Андрея Максимова
+int Smooth_Davis_Maksimov(Data& new_grid, const Data& prev_grid) //алгоритм Андрея Максимова
 {
   #define INT_MAX_EQUATION_NUMBER 3
   double numerator, denominator_plus, denominator_minus;

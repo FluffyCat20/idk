@@ -36,7 +36,7 @@ struct data_node{
   int calc_F_in_node();
 };
 
-struct data{
+struct Data{
 
   std::string method_name = "";
 
@@ -55,7 +55,7 @@ struct data{
 
   std::vector<std::vector<double>> D; //artificial viscosity terms
 
-  data(std::ifstream& config_file_path){
+  Data(std::ifstream& config_file_path){
     get_data_from_config(config_file_path);    
     delta_x = (x_right - x_left)/size;
     x0 = size/2;
@@ -84,19 +84,19 @@ struct data{
 
   void get_data_from_config(std::ifstream& input);
   double calc_delta_t();
-  void calc_new_U_with_lax_friedrichs(const data& prev_grid);
+  void calc_new_U_with_lax_friedrichs(const Data& prev_grid);
   void calc_D(); //Davis artificial viscosity terms
-  void mac_cormack_predictor_step (const data& prev_grid);
-  void mac_cormack_corrector_step(const data& prev_grid, const data& predictor_grid);
-  void calc_new_U_with_mac_cormack(data& prev_grid);
-  void calc_new_U_with_mac_cormack_davis(data& prev_grid);
-  void calc_new_U_and_F_with_godunov(data& prev_grid, double current_t);
+  void mac_cormack_predictor_step (const Data& prev_grid);
+  void mac_cormack_corrector_step(const Data& prev_grid, const Data& predictor_grid);
+  void calc_new_U_with_mac_cormack(Data& prev_grid);
+  void calc_new_U_with_mac_cormack_davis(Data& prev_grid);
+  void calc_new_U_and_F_with_godunov(Data& prev_grid, double current_t);
   void calc_F_in_nodes();
   void calc_F_btw_nodes(double& max_velocity);
-  data& operator=(const data& other);
+  Data& operator=(const Data& other);
 
 };
 
-int Smooth_Davis_Maksimov(data& new_grid, const data& prev_grid);
+int Smooth_Davis_Maksimov(Data& new_grid, const Data& prev_grid);
 
 #endif // DATA_H
